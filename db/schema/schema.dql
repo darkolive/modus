@@ -1,0 +1,462 @@
+# Combined DQL Schema for DO Study LMS
+# Auto-generated from individual .dql files
+# Generated on: Wed Jul  9 00:36:32 BST 2025
+
+
+# ============================================
+# PREDICATES (with indexes and types)
+# ============================================
+accessibilityNeeds: [string] .
+accessToken: string .
+achievements: [uid] .
+action: uid .
+actionTypes: [uid] .
+add: { rule .
+addedAt: datetime @index(hour) .
+additional: string .                    # JSON string .
+address: string @index(exact) .
+appeals: [uid] .
+assessments: [uid] .
+assignedUnits: [uid] .
+awardedAt: datetime @index(hour) .
+birthYear: int @index(int) .            # Less granular than full DOB .
+brand: string .
+browser: string .
+category: uid .
+centre: uid .
+certificates: [uid] .
+channelHash: string @index(exact) .
+channelType: string @index(exact) .
+city: string @index(term) .
+code: string @index(exact) .
+complaints: [uid] .
+completion: bool .
+completionPercent: float .
+condition: string @index(term) .
+consented: bool .
+consentRecords: [uid] .
+contactName: string @index(term) .
+contactType: string @index(exact) .     # EMAIL, PHONE, ADDRESS, OTHER .
+context: uid .
+country: string @index(exact) .         # ISO 3166-1 alpha-2 .
+createdAt: datetime @index(hour) .
+credentialId: string @index(exact) .
+dashboardPreferences: [string] .
+defaultDashboard: string .
+delete: { rule .
+description: string .
+device: string .
+deviceId: string @index(exact) .
+diagnoses: [uid] .
+did: string @index(exact) .             # Decentralised Identifier .
+disclosedByUser: bool .
+displayName: string @index(term) .
+duration: int .
+email: string .
+emergencyContact: uid .
+enabledFeatures: [string] .
+enrolledAt: datetime @index(hour) .
+enrolments: [uid] .
+expertiseAreas: [string] .
+expiresAt: datetime @index(hour) .
+expiry: datetime .
+externalReference: string @index(exact) .
+geoLocation: uid .
+given: bool .
+givenAt: datetime @index(hour) .
+id: string @index(exact) .
+identityDocuments: [uid] .
+ipAddress: string @index(exact) .
+issuedDate: datetime .
+language: string .
+languagePreference: string @index(exact) . # ISO 639-1 .
+lastSignin: datetime @index(hour) .
+lastStatement: uid .
+lastUpdated: datetime @index(hour) .
+lastVerified: datetime .
+latitude: float .
+linkedAt: datetime @index(hour) .
+longitude: float .
+medicalRecord: uid .
+method: string @index(exact) .
+model: string .
+name: string @index(exact) .
+nationality: string .
+notes: string .
+objectId: string @index(exact) .
+objectType: string @index(exact) .      # COURSE_UNIT_VERSION, LESSON_PLAN, etc .
+organisation: string .
+origin: string @index(exact) .
+os: string .
+osVersion: string .
+otpHash: string @index(exact) .
+passed: bool .
+permissions: [uid] .
+phone: string .
+platform: string @index(exact) .       # FACEBOOK, TWITTER, LINKEDIN, etc .
+postalAddress: uid .
+postalCode: string @index(exact) .
+preferredPronouns: string .
+profile: uid .
+progress: [uid] .
+publicKey: string .
+purpose: string @index(exact) .         # PRIMARY, EMERGENCY, SUPPORT, BILLING, etc .
+qualifiedLevels: [int] .
+query: { rule .
+referrer: string .
+refreshToken: string .
+region: string .
+relationship: string .
+response: string .
+result: uid .
+reviewedAt: datetime .
+reviews: [uid] .
+revokedAt: datetime .
+roles: [uid] .
+sampledAssessments: [uid] .
+scopes: [string] .
+score: float .
+signCount: int .
+statementsCount: int .
+status: string @index(exact) .          # PENDING, ACTIVE, SUSPENDED, DELETED .
+street1: string .
+street2: string .
+student: uid .
+success: bool .
+superAdmin: bool .
+supportTickets: [uid] .
+timestamp: datetime @index(hour) .
+title: [uid] .
+tlsCipher: string .
+token: string @index(exact) .           # Tokenised email or phone .
+transports: [string] .
+type: string @index(exact) .            # PASSPORT, NATIONAL_ID, FACIAL_RECOGNITION, OTHER .
+unitVersion: uid .
+update: { rule .
+updatedAt: datetime @index(hour) .
+url: string .
+used: bool @index(bool) .
+user: uid .
+userAgent: string .
+userId: string @index(exact) .          # Maps to hashed internal User ID .
+username: string .
+verb: string @index(exact) .            # VIEWED, READ, WATCHED, etc .
+verified: bool @index(bool) .
+verifiedAt: datetime @index(hour) .
+version: string .
+wallet: uid .
+
+# ============================================
+# TYPES (structure definitions)
+# ============================================
+
+# auth_otp_otp types
+type ChannelOTP {
+    user: uid
+    otpHash: string
+    expiresAt: datetime
+    createdAt: datetime
+    verified: bool
+    used: bool
+    purpose: string
+    channelType: string
+    channelHash: string
+}
+
+# auth_passwordless_passwordless types
+type PasswordlessSession {
+    user: uid
+    method: string
+    createdAt: datetime
+    expiresAt: datetime
+    ipAddress: string
+    userAgent: string
+    deviceId: string
+    origin: string
+    geoLocation: uid
+    tlsCipher: string
+}
+
+# auth_rbac_rbac types
+type PermissionCategory {
+    id: string
+    displayName: [uid]
+    actionTypes: [uid]
+}
+type ActionType {
+    code: string
+    description: [uid]
+}
+type Permission {
+    category: uid
+    action: uid
+}
+type Role {
+    name: string
+    permissions: [uid]
+    defaultDashboard: string
+}
+
+# auth_recovery_recovery types
+type PasswordRecovery {
+    user: uid
+    token: string
+    expiresAt: datetime
+    createdAt: datetime
+}
+type PasswordReset {
+    user: uid
+    token: string
+    expiresAt: datetime
+    createdAt: datetime
+}
+
+# auth_sessions_sessions types
+type AuthSession {
+    user: uid
+    method: string
+    createdAt: datetime
+    expiresAt: datetime
+    ipAddress: string
+    userAgent: string
+    deviceId: string
+    origin: string
+    geoLocation: uid
+    tlsCipher: string
+}
+type GeoLocation @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    country: string
+    region: string
+    city: string
+    latitude: float
+    longitude: float
+}
+type TLSCipher {
+    name: string
+    description: string
+}
+type UserAgent {
+    name: string
+    version: string
+    platform: string
+    device: string
+    browser: string
+}
+type Device {
+    name: string
+    model: string
+    brand: string
+    os: string
+    osVersion: string
+}
+type Origin {
+    name: string
+    url: string
+    referrer: string
+}
+type IPAddress {
+    address: string
+    type: string
+    country: string
+    region: string
+    city: string
+    latitude: float
+    longitude: float
+}
+
+# auth_webauthn_webauthn types
+type WebAuthnCredential {
+    user: uid
+    credentialId: string
+    publicKey: string
+    signCount: int
+    transports: [string]
+    addedAt: datetime
+}
+
+# base_base types
+
+# users_admin_admin types
+type SystemAdmin {
+    user: uid
+    superAdmin: bool
+}
+
+# users_assessor_assessor types
+type Assessor {
+    user: uid
+    centre: uid
+    qualifiedLevels: [int]
+    assessments: [uid]
+}
+
+# users_centre-staff_centre-staff types
+type CentreStaff {
+    user: uid
+    centre: uid
+    dashboardPreferences: [string]
+}
+
+# users_profile_profile types
+type IdentityDocument {
+    type: string
+    externalReference: string
+    issuedDate: datetime
+    verifiedAt: datetime
+    reviewedAt: datetime
+}
+type UserProfile {
+    userId: string
+    displayName: string
+    preferredPronouns: string
+    languagePreference: string
+    nationality: string
+    birthYear: int
+}
+type UserMedical {
+    userId: string
+    accessibilityNeeds: [string]
+    diagnoses: [uid]
+    consented: bool
+    lastUpdated: datetime
+}
+type Diagnosis {
+    condition: string
+    notes: string
+    disclosedByUser: bool
+}
+type PostalAddress {
+    street1: string
+    street2: string
+    city: string
+    region: string
+    postalCode: string
+    country: string
+}
+type UserContact {
+    userId: string
+    contactType: string
+    purpose: string
+    token: string
+    postalAddress: uid
+    verified: bool
+    verifiedAt: datetime
+    addedAt: datetime
+}
+type UserEmergency {
+    userId: string
+    contactName: string
+    relationship: string
+    phone: string
+    email: string
+    lastVerified: datetime
+}
+type UserSocial {
+    userId: string
+    platform: string
+    username: string
+    linkedAt: datetime
+    accessToken: string
+    refreshToken: string
+    expiry: datetime
+    scopes: [string]
+    enabledFeatures: [string]
+}
+
+# users_reviewer_reviewer types
+type Reviewer {
+    user: uid
+    expertiseAreas: [string]
+    reviews: [uid]
+}
+
+# users_student_student types
+type Student {
+    user: uid
+    profile: uid
+    enrolments: [uid]
+    certificates: [uid]
+    medicalRecord: uid
+    emergencyContact: uid
+    progress: [uid]
+    achievements: [uid]
+    consentRecords: [uid]
+    supportTickets: [uid]
+    appeals: [uid]
+    complaints: [uid]
+}
+type ProgressStatement {
+    student: uid
+    verb: string
+    objectType: string
+    objectId: string
+    timestamp: datetime
+    duration: int
+    result: uid
+    context: uid
+}
+type ProgressResult {
+    score: float
+    success: bool
+    completion: bool
+    response: string
+}
+type ProgressContext {
+    platform: string
+    language: string
+    ipAddress: string
+    userAgent: string
+    additional: string
+}
+type StudentProgress {
+    unitVersion: uid
+    enrolledAt: datetime
+    lastStatement: uid
+    statementsCount: int
+    completionPercent: float
+    passed: bool
+    score: float
+}
+type Badge {
+    code: string
+    title: [uid]
+    awardedAt: datetime
+}
+type ConsentRecord {
+    type: string
+    given: bool
+    givenAt: datetime
+    revokedAt: datetime
+}
+
+# users_tutor_tutor types
+type Tutor {
+    user: uid
+    centre: uid
+    expertiseAreas: [string]
+    assignedUnits: [uid]
+}
+
+# users_uid_uid types
+type User {
+    status: string
+    did: string
+    roles: [uid]
+    createdAt: datetime
+    updatedAt: datetime
+    lastSignin: datetime
+    wallet: uid
+    identityDocuments: [uid]
+}
+
+# users_verifier_verifier types
+type ExternalVerifier {
+    user: uid
+    organisation: string
+    sampledAssessments: [uid]
+}

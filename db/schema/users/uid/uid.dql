@@ -1,0 +1,12 @@
+# Base User Type
+type User {
+    status: string @index(exact) .          # PENDING, ACTIVE, SUSPENDED, DELETED
+    did: string @index(exact) .             # Decentralised Identifier
+    roles: [uid] 
+    createdAt: datetime @index(hour) 
+    updatedAt: datetime @index(hour) 
+    lastSignin: datetime @index(hour) 
+    wallet: uid 
+    identityDocuments: [uid] 
+}
+

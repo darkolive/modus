@@ -1,0 +1,6 @@
+# Staff Types
+type CentreStaff {
+    user: uid 
+    centre: uid 
+    dashboardPreferences: [string] 
+}

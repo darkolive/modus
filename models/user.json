@@ -1,0 +1,9 @@
+{
+  "name": "User",
+  "fields": [
+    {"name": "id", "type": "string", "primaryKey": true},
+    {"name": "email", "type": "string"},
+    {"name": "displayName", "type": "string"},
+    {"name": "roles", "type": "[]string"}
+  ]
+}

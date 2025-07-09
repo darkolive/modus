@@ -1,0 +1,65 @@
+# Student-specific types
+type Student {
+    user: uid 
+    profile: uid 
+    enrolments: [uid] 
+    certificates: [uid] 
+    medicalRecord: uid 
+    emergencyContact: uid 
+    progress: [uid] 
+    achievements: [uid] 
+    consentRecords: [uid] 
+    supportTickets: [uid] 
+    appeals: [uid] 
+    complaints: [uid] 
+}
+
+# Progress Tracking
+type ProgressStatement {
+    student: uid 
+    verb: string @index(exact) .            # VIEWED, READ, WATCHED, etc
+    objectType: string @index(exact) .      # COURSE_UNIT_VERSION, LESSON_PLAN, etc
+    objectId: string @index(exact) 
+    timestamp: datetime @index(hour) 
+    duration: int 
+    result: uid 
+    context: uid 
+}
+
+type ProgressResult {
+    score: float 
+    success: bool 
+    completion: bool 
+    response: string 
+}
+
+type ProgressContext {
+    platform: string 
+    language: string 
+    ipAddress: string 
+    userAgent: string 
+    additional: string .                    # JSON string
+}
+
+type StudentProgress {
+    unitVersion: uid 
+    enrolledAt: datetime @index(hour) 
+    lastStatement: uid 
+    statementsCount: int 
+    completionPercent: float 
+    passed: bool 
+    score: float 
+}
+
+type Badge {
+    code: string @index(exact) 
+    title: [uid] 
+    awardedAt: datetime @index(hour) 
+}
+
+type ConsentRecord {
+    type: string @index(exact) .            # PRIVACY, MEDICAL, PHOTO_RELEASE, etc
+    given: bool 
+    givenAt: datetime @index(hour) 
+    revokedAt: datetime 
+}

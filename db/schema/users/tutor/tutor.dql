@@ -1,0 +1,6 @@
+type Tutor {
+    user: uid 
+    centre: uid 
+    expertiseAreas: [string] 
+    assignedUnits: [uid] 
+}

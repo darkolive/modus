@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.hypermode.com/modus.json",
+  "endpoints": {
+    "default": {
+      "type": "graphql",
+      "path": "/graphql",
+      "auth": "bearer-token"
+    }
+  },
+  "connections": {
+    "mailersend": {
+      "type": "http",
+      "baseUrl": "https://api.mailersend.com/v1/email/",
+      "headers": {
+        "Authorization": "Bearer {{API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    "dgraph": {
+      "type": "dgraph",
+      "connString": "dgraph://do-study-do-study.hypermode.host:443?sslmode=verify-ca&bearertoken={{API_KEY}}"
+    }
+  }
+}

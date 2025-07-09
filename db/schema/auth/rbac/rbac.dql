@@ -1,0 +1,24 @@
+# Comprehensive user management system with roles, permissions, and ISO compliance
+
+# Permission Categories
+type PermissionCategory {
+    id: string @index(exact) 
+    displayName: [uid] 
+    actionTypes: [uid] 
+}
+
+type ActionType {
+    code: string @index(exact) 
+    description: [uid] 
+}
+
+type Permission {
+    category: uid 
+    action: uid 
+}
+
+type Role {
+    name: string @index(term) 
+    permissions: [uid] 
+    defaultDashboard: string 
+}

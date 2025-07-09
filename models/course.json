@@ -1,0 +1,11 @@
+{
+  "name": "Course",
+  "fields": [
+    {"name": "id", "type": "string", "primaryKey": true},
+    {"name": "title", "type": "string"},
+    {"name": "description", "type": "string"},
+    {"name": "language", "type": "string"},
+    {"name": "createdBy", "type": "string"},
+    {"name": "status", "type": "string"}
+  ]
+}

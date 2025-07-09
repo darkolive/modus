@@ -1,0 +1,125 @@
+# GraphQL Schema with @auth directives for DO Study LMS
+# This provides access control on top of the DQL schema
+# Deploy to /admin/schema endpoint (not /dgraph/alter)
+
+# Dgraph.Authorization object for JWT configuration
+# Dgraph.Authorization: {"VerificationKey":"your-jwt-secret","Header":"Authorization","Namespace":"https://dgraph.io/jwt/claims","Algo":"HS256"}
+
+type ChannelOTP @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { eq: \"admin\" } }" }
+) {
+    id: ID!
+    user: User
+    otpHash: String @search(by: [exact])
+    expiresAt: DateTime @search(by: [hour])
+    createdAt: DateTime @search(by: [hour])
+    verified: Boolean @search
+    used: Boolean @search
+    purpose: String @search(by: [exact])
+    channelType: String @search(by: [exact])
+    channelHash: String @search(by: [exact])
+}
+
+type SystemAdmin @auth(
+    query: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" },
+    add: { rule: "{ $ROLE: { eq: \"superadmin\" } }" },
+    update: { rule: "{ $ROLE: { eq: \"superadmin\" } }" },
+    delete: { rule: "{ $ROLE: { eq: \"superadmin\" } }" }
+) {
+    id: ID!
+    user: User
+    superAdmin: Boolean
+}
+
+type IdentityDocument @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"user\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"user\", \"admin\", \"verifier\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    id: ID!
+    type: String @search(by: [exact])
+    externalReference: String @search(by: [exact])
+    issuedDate: DateTime
+    verifiedAt: DateTime @search(by: [hour])
+    reviewedAt: DateTime
+}
+
+type UserProfile @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"user\", \"admin\"] } }" },
+    update: { rule: "{ $USER: { eq: \"user\" } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    id: ID!
+    userId: String @search(by: [exact])
+    displayName: String @search(by: [term])
+    preferredPronouns: String
+    languagePreference: String @search(by: [exact])
+    nationality: String
+    birthYear: Int @search
+}
+
+type UserMedical @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $USER: { eq: \"user\" } }" },
+    update: { rule: "{ $USER: { eq: \"user\" } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    id: ID!
+    userId: String @search(by: [exact])
+    accessibilityNeeds: [String]
+    diagnoses: [String]
+    consented: Boolean
+    lastUpdated: DateTime @search(by: [hour])
+}
+
+type AuthSession @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" }
+) {
+    id: ID!
+    user: User
+    method: String @search(by: [exact])
+    createdAt: DateTime @search(by: [hour])
+    expiresAt: DateTime @search(by: [hour])
+    ipAddress: String @search(by: [exact])
+    userAgent: String
+    deviceId: String @search(by: [exact])
+    origin: String @search(by: [exact])
+    geoLocation: GeoLocation
+    tlsCipher: String
+}
+
+type GeoLocation @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    id: ID!
+    country: String @search(by: [exact])
+    region: String
+    city: String
+    latitude: Float
+    longitude: Float
+}
+
+# Base User type (referenced by other types)
+type User @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $USER: { eq: \"user\" } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    id: ID!
+    username: String @search(by: [exact])
+    email: String @search(by: [exact])
+    createdAt: DateTime @search(by: [hour])
+    updatedAt: DateTime @search(by: [hour])
+}

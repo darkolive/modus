@@ -1,0 +1,10 @@
+{
+  "name": "EmailOtp",
+  "fields": [
+    {"name": "id", "type": "string", "primaryKey": true},
+    {"name": "userId", "type": "string"},
+    {"name": "otpHash", "type": "string"},
+    {"name": "expiresAt", "type": "datetime"},
+    {"name": "createdAt", "type": "datetime"}
+  ]
+}

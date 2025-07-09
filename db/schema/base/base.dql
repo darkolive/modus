@@ -1,0 +1,47 @@
+# Base Schema - Common Predicates
+# This file contains predicates used across multiple schema files
+# to avoid duplication and ensure consistency
+
+# Common relationship predicates
+user: uid .                                 # Reference to User entity
+centre: uid .                              # Reference to Centre entity
+
+# Common timestamp predicates  
+createdAt: datetime @index(hour) .         # Creation timestamp
+updatedAt: datetime @index(hour) .         # Last update timestamp
+expiresAt: datetime @index(hour) .         # Expiration timestamp
+verifiedAt: datetime @index(hour) .        # Verification timestamp
+
+# Common identifier predicates
+userId: string @index(exact) .             # User identifier (hashed)
+token: string @index(exact) .              # Generic token field
+type: string @index(exact) .               # Generic type classifier
+
+# Common name predicates
+name: string @index(term) .                # Generic name field (searchable)
+displayName: string @index(term) .         # Display name (searchable)
+
+# Common network/session predicates
+ipAddress: string @index(exact) .          # IP address
+userAgent: string .                        # User agent string
+deviceId: string @index(exact) .           # Device identifier
+origin: string @index(exact) .             # Request origin
+
+# Common location predicates
+country: string @index(exact) .            # Country code (ISO 3166-1)
+region: string .                           # State/province/region
+city: string @index(term) .                # City name (searchable)
+latitude: float .                          # Geographic latitude
+longitude: float .                         # Geographic longitude
+
+# Common platform/system predicates
+platform: string @index(exact) .          # Platform identifier
+version: string .                          # Version string
+description: string .                      # Generic description field
+
+# Common verification predicates
+verified: bool @index(bool) .              # Verification status
+purpose: string @index(exact) .            # Purpose/intent classifier
+
+# Common scoring/progress predicates
+score: float .                             # Numeric score value

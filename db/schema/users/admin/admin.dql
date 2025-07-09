@@ -1,0 +1,4 @@
+type SystemAdmin {
+    user: uid 
+    superAdmin: bool 
+}

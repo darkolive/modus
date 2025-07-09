@@ -1,0 +1,5 @@
+type ExternalVerifier {
+    user: uid 
+    organisation: string 
+    sampledAssessments: [uid] 
+}

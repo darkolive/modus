@@ -1,0 +1,9 @@
+# WebAuthn Credentials
+type WebAuthnCredential {
+    user: uid 
+    credentialId: string @index(exact) 
+    publicKey: string 
+    signCount: int 
+    transports: [string] 
+    addedAt: datetime @index(hour) 
+}

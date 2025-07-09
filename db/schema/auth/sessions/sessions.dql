@@ -1,0 +1,67 @@
+type AuthSession {
+    user: uid 
+    method: string @index(exact) 
+    createdAt: datetime @index(hour) 
+    expiresAt: datetime @index(hour) 
+    ipAddress: string @index(exact) 
+    userAgent: string 
+    deviceId: string @index(exact) 
+    origin: string @index(exact) 
+    geoLocation: uid 
+    tlsCipher: string 
+}
+
+type GeoLocation @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    country: string @index(exact) 
+    region: string 
+    city: string 
+    latitude: float 
+    longitude: float 
+}
+
+# TLS Cipher
+type TLSCipher {
+    name: string @index(exact) 
+    description: string 
+}
+
+# User Agent
+type UserAgent {
+    name: string @index(exact) 
+    version: string 
+    platform: string 
+    device: string 
+    browser: string 
+}
+
+# Device
+type Device {
+    name: string @index(exact) 
+    model: string 
+    brand: string 
+    os: string 
+    osVersion: string 
+}
+
+# Origin
+type Origin {
+    name: string @index(exact) 
+    url: string 
+    referrer: string 
+}
+
+# IP Address
+type IPAddress {
+    address: string @index(exact) 
+    type: string 
+    country: string @index(exact) 
+    region: string 
+    city: string 
+    latitude: float 
+    longitude: float 
+}

@@ -1,0 +1,15 @@
+# Password Recovery
+type PasswordRecovery {
+    user: uid 
+    token: string @index(exact) 
+    expiresAt: datetime @index(hour) 
+    createdAt: datetime @index(hour) 
+}
+
+# Password Reset
+type PasswordReset {
+    user: uid 
+    token: string @index(exact) 
+    expiresAt: datetime @index(hour) 
+    createdAt: datetime @index(hour) 
+}

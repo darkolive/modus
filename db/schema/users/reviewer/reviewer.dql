@@ -1,0 +1,5 @@
+type Reviewer {
+    user: uid 
+    expertiseAreas: [string] 
+    reviews: [uid] 
+}

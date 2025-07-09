@@ -1,0 +1,6 @@
+type Assessor {
+    user: uid 
+    centre: uid 
+    qualifiedLevels: [int] 
+    assessments: [uid] 
+}

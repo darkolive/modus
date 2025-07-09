@@ -1,0 +1,76 @@
+# Identity Documents
+type IdentityDocument {
+    type: string @index(exact) .            # PASSPORT, NATIONAL_ID, FACIAL_RECOGNITION, OTHER
+    externalReference: string @index(exact) 
+    issuedDate: datetime 
+    verifiedAt: datetime @index(hour) 
+    reviewedAt: datetime 
+}
+# User Profile (non-sensitive)
+type UserProfile {
+    userId: string @index(exact) .          # Maps to hashed internal User ID
+    displayName: string @index(term) 
+    preferredPronouns: string 
+    languagePreference: string @index(exact) . # ISO 639-1
+    nationality: string 
+    birthYear: int @index(int) .            # Less granular than full DOB
+}
+
+# Medical Information
+type UserMedical {
+    userId: string @index(exact) 
+    accessibilityNeeds: [string] 
+    diagnoses: [uid] 
+    consented: bool 
+    lastUpdated: datetime @index(hour) 
+}
+
+type Diagnosis {
+    condition: string @index(term) 
+    notes: string 
+    disclosedByUser: bool 
+}
+
+# Contact Information
+type PostalAddress {
+    street1: string 
+    street2: string 
+    city: string @index(term) 
+    region: string 
+    postalCode: string @index(exact) 
+    country: string @index(exact) .         # ISO 3166-1 alpha-2
+}
+
+type UserContact {
+    userId: string @index(exact) 
+    contactType: string @index(exact) .     # EMAIL, PHONE, ADDRESS, OTHER
+    purpose: string @index(exact) .         # PRIMARY, EMERGENCY, SUPPORT, BILLING, etc
+    token: string @index(exact) .           # Tokenised email or phone
+    postalAddress: uid 
+    verified: bool 
+    verifiedAt: datetime 
+    addedAt: datetime @index(hour) 
+}
+
+# Emergency Contact
+type UserEmergency {
+    userId: string @index(exact) 
+    contactName: string @index(term) 
+    relationship: string 
+    phone: string 
+    email: string 
+    lastVerified: datetime 
+}
+
+# Social Media Integration
+type UserSocial {
+    userId: string @index(exact) 
+    platform: string @index(exact) .       # FACEBOOK, TWITTER, LINKEDIN, etc
+    username: string 
+    linkedAt: datetime @index(hour) 
+    accessToken: string 
+    refreshToken: string 
+    expiry: datetime 
+    scopes: [string] 
+    enabledFeatures: [string] 
+}

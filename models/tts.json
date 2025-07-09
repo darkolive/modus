@@ -1,0 +1,12 @@
+{
+  "name": "TTSJob",
+  "fields": [
+    {"name": "id", "type": "string", "primaryKey": true},
+    {"name": "inputText", "type": "string"},
+    {"name": "outputAudioUrl", "type": "string"},
+    {"name": "status", "type": "string"},
+    {"name": "requestedBy", "type": "string"},
+    {"name": "createdAt", "type": "datetime"},
+    {"name": "completedAt", "type": "datetime"}
+  ]
+}

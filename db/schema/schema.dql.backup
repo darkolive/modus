@@ -1,0 +1,501 @@
+# Combined DQL Schema for DO Study LMS
+# Auto-generated from individual .dql files
+# Generated on: Wed Jul  9 00:33:10 BST 2025
+# Preserves @auth directives and exact syntax
+
+
+# ============================================
+# Schema: auth_otp_otp
+# Source: auth/otp/otp.dql
+# ============================================
+
+# Channel OTP (hashed)
+
+type ChannelOTP {
+    user: uid 
+    otpHash: string @index(exact) 
+    expiresAt: datetime @index(hour) 
+    createdAt: datetime @index(hour) 
+    verified: bool @index(bool) 
+    used: bool @index(bool) 
+    purpose: string @index(exact) 
+    channelType: string @index(exact) 
+    channelHash: string @index(exact) 
+}
+
+# ============================================
+# Schema: auth_passwordless_passwordless
+# Source: auth/passwordless/passwordless.dql
+# ============================================
+
+# Passwordless Authentication
+type PasswordlessSession {
+    user: uid 
+    method: string @index(exact) 
+    createdAt: datetime @index(hour) 
+    expiresAt: datetime @index(hour) 
+    ipAddress: string @index(exact) 
+    userAgent: string 
+    deviceId: string @index(exact) 
+    origin: string @index(exact) 
+    geoLocation: uid 
+    tlsCipher: string 
+}
+
+# ============================================
+# Schema: auth_rbac_rbac
+# Source: auth/rbac/rbac.dql
+# ============================================
+
+# Comprehensive user management system with roles, permissions, and ISO compliance
+
+# Permission Categories
+type PermissionCategory {
+    id: string @index(exact) 
+    displayName: [uid] 
+    actionTypes: [uid] 
+}
+
+type ActionType {
+    code: string @index(exact) 
+    description: [uid] 
+}
+
+type Permission {
+    category: uid 
+    action: uid 
+}
+
+type Role {
+    name: string @index(term) 
+    permissions: [uid] 
+    defaultDashboard: string 
+}
+
+# ============================================
+# Schema: auth_recovery_recovery
+# Source: auth/recovery/recovery.dql
+# ============================================
+
+# Password Recovery
+type PasswordRecovery {
+    user: uid 
+    token: string @index(exact) 
+    expiresAt: datetime @index(hour) 
+    createdAt: datetime @index(hour) 
+}
+
+# Password Reset
+type PasswordReset {
+    user: uid 
+    token: string @index(exact) 
+    expiresAt: datetime @index(hour) 
+    createdAt: datetime @index(hour) 
+}
+
+
+# ============================================
+# Schema: auth_sessions_sessions
+# Source: auth/sessions/sessions.dql
+# ============================================
+
+type AuthSession @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" }
+) {
+    user: uid 
+    method: string @index(exact) 
+    createdAt: datetime @index(hour) 
+    expiresAt: datetime @index(hour) 
+    ipAddress: string @index(exact) 
+    userAgent: string 
+    deviceId: string @index(exact) 
+    origin: string @index(exact) 
+    geoLocation: uid 
+    tlsCipher: string 
+}
+
+type GeoLocation @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    country: string @index(exact) 
+    region: string 
+    city: string 
+    latitude: float 
+    longitude: float 
+}
+
+# TLS Cipher
+type TLSCipher {
+    name: string @index(exact) 
+    description: string 
+}
+
+# User Agent
+type UserAgent {
+    name: string @index(exact) 
+    version: string 
+    platform: string 
+    device: string 
+    browser: string 
+}
+
+# Device
+type Device {
+    name: string @index(exact) 
+    model: string 
+    brand: string 
+    os: string 
+    osVersion: string 
+}
+
+# Origin
+type Origin {
+    name: string @index(exact) 
+    url: string 
+    referrer: string 
+}
+
+# IP Address
+type IPAddress {
+    address: string @index(exact) 
+    type: string 
+    country: string @index(exact) 
+    region: string 
+    city: string 
+    latitude: float 
+    longitude: float 
+}
+
+
+# ============================================
+# Schema: auth_webauthn_webauthn
+# Source: auth/webauthn/webauthn.dql
+# ============================================
+
+# WebAuthn Credentials
+type WebAuthnCredential {
+    user: uid 
+    credentialId: string @index(exact) 
+    publicKey: string 
+    signCount: int 
+    transports: [string] 
+    addedAt: datetime @index(hour) 
+}
+
+
+# ============================================
+# Schema: base_base
+# Source: base/base.dql
+# ============================================
+
+# Base Schema - Common Predicates
+# This file contains predicates used across multiple schema files
+# to avoid duplication and ensure consistency
+
+# Common relationship predicates
+user: uid .                                 # Reference to User entity
+centre: uid .                              # Reference to Centre entity
+
+# Common timestamp predicates  
+createdAt: datetime @index(hour) .         # Creation timestamp
+updatedAt: datetime @index(hour) .         # Last update timestamp
+expiresAt: datetime @index(hour) .         # Expiration timestamp
+verifiedAt: datetime @index(hour) .        # Verification timestamp
+
+# Common identifier predicates
+userId: string @index(exact) .             # User identifier (hashed)
+token: string @index(exact) .              # Generic token field
+type: string @index(exact) .               # Generic type classifier
+
+# Common name predicates
+name: string @index(term) .                # Generic name field (searchable)
+displayName: string @index(term) .         # Display name (searchable)
+
+# Common network/session predicates
+ipAddress: string @index(exact) .          # IP address
+userAgent: string .                        # User agent string
+deviceId: string @index(exact) .           # Device identifier
+origin: string @index(exact) .             # Request origin
+
+# Common location predicates
+country: string @index(exact) .            # Country code (ISO 3166-1)
+region: string .                           # State/province/region
+city: string @index(term) .                # City name (searchable)
+latitude: float .                          # Geographic latitude
+longitude: float .                         # Geographic longitude
+
+# Common platform/system predicates
+platform: string @index(exact) .          # Platform identifier
+version: string .                          # Version string
+description: string .                      # Generic description field
+
+# Common verification predicates
+verified: bool @index(bool) .              # Verification status
+purpose: string @index(exact) .            # Purpose/intent classifier
+
+# Common scoring/progress predicates
+score: float .                             # Numeric score value
+
+
+# ============================================
+# Schema: users_admin_admin
+# Source: users/admin/admin.dql
+# ============================================
+
+type SystemAdmin {
+    user: uid 
+    superAdmin: bool 
+}
+
+# ============================================
+# Schema: users_assessor_assessor
+# Source: users/assessor/assessor.dql
+# ============================================
+
+type Assessor {
+    user: uid 
+    centre: uid 
+    qualifiedLevels: [int] 
+    assessments: [uid] 
+}
+
+# ============================================
+# Schema: users_centre-staff_centre-staff
+# Source: users/centre-staff/centre-staff.dql
+# ============================================
+
+# Staff Types
+type CentreStaff {
+    user: uid 
+    centre: uid 
+    dashboardPreferences: [string] 
+}
+
+# ============================================
+# Schema: users_profile_profile
+# Source: users/profile/profile.dql
+# ============================================
+
+# Identity Documents
+type IdentityDocument @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"user\", \"admin\"] } }" },
+    update: { rule: "{ $ROLE: { in: [\"user\", \"admin\", \"verifier\"] } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    type: string @index(exact) .            # PASSPORT, NATIONAL_ID, FACIAL_RECOGNITION, OTHER
+    externalReference: string @index(exact) 
+    issuedDate: datetime 
+    verifiedAt: datetime @index(hour) 
+    reviewedAt: datetime 
+}
+# User Profile (non-sensitive)
+type UserProfile @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $ROLE: { in: [\"user\", \"admin\"] } }" },
+    update: { rule: "{ $USER: { eq: \"user\" } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    userId: string @index(exact) .          # Maps to hashed internal User ID
+    displayName: string @index(term) 
+    preferredPronouns: string 
+    languagePreference: string @index(exact) . # ISO 639-1
+    nationality: string 
+    birthYear: int @index(int) .            # Less granular than full DOB
+}
+
+# Medical Information
+type UserMedical @auth(
+    query: { rule: "{ $USER: { eq: \"user\" } }" },
+    add: { rule: "{ $USER: { eq: \"user\" } }" },
+    update: { rule: "{ $USER: { eq: \"user\" } }" },
+    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
+) {
+    userId: string @index(exact) 
+    accessibilityNeeds: [string] 
+    diagnoses: [uid] 
+    consented: bool 
+    lastUpdated: datetime @index(hour) 
+}
+
+type Diagnosis {
+    condition: string @index(term) 
+    notes: string 
+    disclosedByUser: bool 
+}
+
+# Contact Information
+type PostalAddress {
+    street1: string 
+    street2: string 
+    city: string @index(term) 
+    region: string 
+    postalCode: string @index(exact) 
+    country: string @index(exact) .         # ISO 3166-1 alpha-2
+}
+
+type UserContact {
+    userId: string @index(exact) 
+    contactType: string @index(exact) .     # EMAIL, PHONE, ADDRESS, OTHER
+    purpose: string @index(exact) .         # PRIMARY, EMERGENCY, SUPPORT, BILLING, etc
+    token: string @index(exact) .           # Tokenised email or phone
+    postalAddress: uid 
+    verified: bool 
+    verifiedAt: datetime 
+    addedAt: datetime @index(hour) 
+}
+
+# Emergency Contact
+type UserEmergency {
+    userId: string @index(exact) 
+    contactName: string @index(term) 
+    relationship: string 
+    phone: string 
+    email: string 
+    lastVerified: datetime 
+}
+
+# Social Media Integration
+type UserSocial {
+    userId: string @index(exact) 
+    platform: string @index(exact) .       # FACEBOOK, TWITTER, LINKEDIN, etc
+    username: string 
+    linkedAt: datetime @index(hour) 
+    accessToken: string 
+    refreshToken: string 
+    expiry: datetime 
+    scopes: [string] 
+    enabledFeatures: [string] 
+}
+
+
+# ============================================
+# Schema: users_reviewer_reviewer
+# Source: users/reviewer/reviewer.dql
+# ============================================
+
+type Reviewer {
+    user: uid 
+    expertiseAreas: [string] 
+    reviews: [uid] 
+}
+
+# ============================================
+# Schema: users_student_student
+# Source: users/student/student.dql
+# ============================================
+
+# Student-specific types
+type Student {
+    user: uid 
+    profile: uid 
+    enrolments: [uid] 
+    certificates: [uid] 
+    medicalRecord: uid 
+    emergencyContact: uid 
+    progress: [uid] 
+    achievements: [uid] 
+    consentRecords: [uid] 
+    supportTickets: [uid] 
+    appeals: [uid] 
+    complaints: [uid] 
+}
+
+# Progress Tracking
+type ProgressStatement {
+    student: uid 
+    verb: string @index(exact) .            # VIEWED, READ, WATCHED, etc
+    objectType: string @index(exact) .      # COURSE_UNIT_VERSION, LESSON_PLAN, etc
+    objectId: string @index(exact) 
+    timestamp: datetime @index(hour) 
+    duration: int 
+    result: uid 
+    context: uid 
+}
+
+type ProgressResult {
+    score: float 
+    success: bool 
+    completion: bool 
+    response: string 
+}
+
+type ProgressContext {
+    platform: string 
+    language: string 
+    ipAddress: string 
+    userAgent: string 
+    additional: string .                    # JSON string
+}
+
+type StudentProgress {
+    unitVersion: uid 
+    enrolledAt: datetime @index(hour) 
+    lastStatement: uid 
+    statementsCount: int 
+    completionPercent: float 
+    passed: bool 
+    score: float 
+}
+
+type Badge {
+    code: string @index(exact) 
+    title: [uid] 
+    awardedAt: datetime @index(hour) 
+}
+
+type ConsentRecord {
+    type: string @index(exact) .            # PRIVACY, MEDICAL, PHOTO_RELEASE, etc
+    given: bool 
+    givenAt: datetime @index(hour) 
+    revokedAt: datetime 
+}
+
+
+# ============================================
+# Schema: users_tutor_tutor
+# Source: users/tutor/tutor.dql
+# ============================================
+
+type Tutor {
+    user: uid 
+    centre: uid 
+    expertiseAreas: [string] 
+    assignedUnits: [uid] 
+}
+
+# ============================================
+# Schema: users_uid_uid
+# Source: users/uid/uid.dql
+# ============================================
+
+# Base User Type
+type User {
+    status: string @index(exact) .          # PENDING, ACTIVE, SUSPENDED, DELETED
+    did: string @index(exact) .             # Decentralised Identifier
+    roles: [uid] 
+    createdAt: datetime @index(hour) 
+    updatedAt: datetime @index(hour) 
+    lastSignin: datetime @index(hour) 
+    wallet: uid 
+    identityDocuments: [uid] 
+}
+
+
+
+# ============================================
+# Schema: users_verifier_verifier
+# Source: users/verifier/verifier.dql
+# ============================================
+
+type ExternalVerifier {
+    user: uid 
+    organisation: string 
+    sampledAssessments: [uid] 
+}
