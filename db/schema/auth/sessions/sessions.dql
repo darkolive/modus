@@ -11,12 +11,7 @@ type AuthSession {
     tlsCipher: string 
 }
 
-type GeoLocation @auth(
-    query: { rule: "{ $USER: { eq: \"user\" } }" },
-    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
-    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
-    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
-) {
+type GeoLocation {
     country: string @index(exact) 
     region: string 
     city: string 

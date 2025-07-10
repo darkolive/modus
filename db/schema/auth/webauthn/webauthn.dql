@@ -7,3 +7,12 @@ type WebAuthnCredential {
     transports: [string] 
     addedAt: datetime @index(hour) 
 }
+
+# WebAuthn Challenges (temporary storage for registration/authentication)
+type WebAuthnChallenge {
+    challenge: string @index(exact) 
+    userId: string @index(exact) 
+    type: string @index(exact)              # "registration" or "authentication"
+    expiresAt: datetime @index(hour) 
+    createdAt: datetime @index(hour) 
+}

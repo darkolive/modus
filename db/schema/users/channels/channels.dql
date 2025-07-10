@@ -1,0 +1,10 @@
+# User Channels (for authentication lookup)
+type UserChannels {
+    userId: string @index(exact)
+    channelType: string @index(exact)
+    channelHash: string @index(exact)
+    verified: bool @index(bool)
+    primary: bool @index(bool)
+    createdAt: datetime @index(hour)
+    lastUsedAt: datetime @index(hour)
+}

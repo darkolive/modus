@@ -1,6 +1,6 @@
 # Combined DQL Schema for DO Study LMS
 # Auto-generated from individual .dql files
-# Generated on: Wed Jul  9 00:36:32 BST 2025
+# Generated on: Thu Jul 10 00:10:09 BST 2025
 
 
 # ============================================
@@ -11,7 +11,6 @@ accessToken: string .
 achievements: [uid] .
 action: uid .
 actionTypes: [uid] .
-add: { rule .
 addedAt: datetime @index(hour) .
 additional: string .                    # JSON string .
 address: string @index(exact) .
@@ -25,6 +24,7 @@ browser: string .
 category: uid .
 centre: uid .
 certificates: [uid] .
+challenge: string @index(exact) .
 channelHash: string @index(exact) .
 channelType: string @index(exact) .
 city: string @index(term) .
@@ -43,7 +43,6 @@ createdAt: datetime @index(hour) .
 credentialId: string @index(exact) .
 dashboardPreferences: [string] .
 defaultDashboard: string .
-delete: { rule .
 description: string .
 device: string .
 deviceId: string @index(exact) .
@@ -73,6 +72,7 @@ languagePreference: string @index(exact) . # ISO 639-1 .
 lastSignin: datetime @index(hour) .
 lastStatement: uid .
 lastUpdated: datetime @index(hour) .
+lastUsedAt: datetime @index(hour) .
 lastVerified: datetime .
 latitude: float .
 linkedAt: datetime @index(hour) .
@@ -97,12 +97,12 @@ platform: string @index(exact) .       # FACEBOOK, TWITTER, LINKEDIN, etc .
 postalAddress: uid .
 postalCode: string @index(exact) .
 preferredPronouns: string .
+primary: bool @index(bool) .
 profile: uid .
 progress: [uid] .
 publicKey: string .
 purpose: string @index(exact) .         # PRIMARY, EMERGENCY, SUPPORT, BILLING, etc .
 qualifiedLevels: [int] .
-query: { rule .
 referrer: string .
 refreshToken: string .
 region: string .
@@ -132,7 +132,6 @@ token: string @index(exact) .           # Tokenised email or phone .
 transports: [string] .
 type: string @index(exact) .            # PASSPORT, NATIONAL_ID, FACIAL_RECOGNITION, OTHER .
 unitVersion: uid .
-update: { rule .
 updatedAt: datetime @index(hour) .
 url: string .
 used: bool @index(bool) .
@@ -224,12 +223,7 @@ type AuthSession {
     geoLocation: uid
     tlsCipher: string
 }
-type GeoLocation @auth(
-    query: { rule: "{ $USER: { eq: \"user\" } }" },
-    add: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
-    update: { rule: "{ $ROLE: { in: [\"system\", \"admin\"] } }" },
-    delete: { rule: "{ $ROLE: { in: [\"admin\", \"superadmin\"] } }" }
-) {
+type GeoLocation {
     country: string
     region: string
     city: string
@@ -278,6 +272,13 @@ type WebAuthnCredential {
     transports: [string]
     addedAt: datetime
 }
+type WebAuthnChallenge {
+    challenge: string
+    userId: string
+    type: string               # "registration" or "authentication"
+    expiresAt: datetime
+    createdAt: datetime
+}
 
 # base_base types
 
@@ -300,6 +301,17 @@ type CentreStaff {
     user: uid
     centre: uid
     dashboardPreferences: [string]
+}
+
+# users_channels_channels types
+type UserChannels {
+    userId: string
+    channelType: string
+    channelHash: string
+    verified: bool
+    primary: bool
+    createdAt: datetime
+    lastUsedAt: datetime
 }
 
 # users_profile_profile types

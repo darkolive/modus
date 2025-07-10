@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hypermodeinc/modus/sdk/go/pkg/dgraph"
-	hermesmailer "modus/agents/communication/HermesMailer"
+	"modus/services/email"
 )
 
 // OTPRequest represents the request to generate and send OTP
@@ -124,28 +124,23 @@ _:channelotp <dgraph.type> "ChannelOTP" .`,
 	return otpUID, nil
 }
 
-// sendOTPViaEmail sends OTP via email using HermesMailer
-func sendOTPViaEmail(ctx context.Context, recipient, otpCode, purpose string) error {
-	// API key is handled by modus.json connection automatically
-	mailer := hermesmailer.NewHermesMailer("")
+// sendOTPViaEmail sends OTP via email using the email service
+func sendOTPViaEmail(recipient, otpCode string) error {
+	// Use the email service for sending OTP emails
+	response, err := email.SendOTPEmail(
+		recipient,
+		otpCode,
+	)
 	
-	req := &hermesmailer.SendTemplateRequest{
-		FromName:   "DO Study Platform",
-		FromEmail:  "info@darkolive.co.uk", // TODO: Configure proper from email
-		ToName:     "User",
-		ToEmail:    recipient,
-		Subject:    fmt.Sprintf("Your OTP Code for %s", purpose),
-		TemplateID: "neqvygm91v8l0p7w", // MailerSend template ID
-		Variables: map[string]string{
-			"otp_code": otpCode,
-			"purpose":  purpose,
-			"expires":  "5 minutes",
-		},
-		Tags: []string{"otp", "authentication"},
+	if err != nil {
+		return fmt.Errorf("failed to send OTP email: %w", err)
 	}
 	
-	_, err := mailer.Send(ctx, req)
-	return err
+	if !response.Success {
+		return fmt.Errorf("email service error: %s", response.Error)
+	}
+	
+	return nil
 }
 
 // sendOTPViaOtherChannels sends OTP via SMS, WhatsApp, or Telegram using IrisMessage
@@ -204,7 +199,7 @@ func SendOTP(ctx context.Context, req OTPRequest) (OTPResponse, error) {
 	var sendErr error
 	switch req.Channel {
 	case "email":
-		sendErr = sendOTPViaEmail(ctx, req.Recipient, otpCode, purpose)
+		sendErr = sendOTPViaEmail(req.Recipient, otpCode)
 	case "sms", "whatsapp", "telegram":
 		sendErr = sendOTPViaOtherChannels(ctx, req.Channel, req.Recipient, otpCode, purpose)
 	default:
@@ -358,31 +353,27 @@ func generateChannelDID(channel, recipient string) string {
 
 // checkUserExists checks if a user exists by channel DID
 func checkUserExists(channelDID, channelType string) (bool, string, error) {
-	// Create GraphQL query to check if user exists by channel DID
+	// Create DQL query to check if user exists by channel DID
 	var query string
 	switch channelType {
 	case "email":
-		query = fmt.Sprintf(`
-			query {
-				queryUser(filter: { emailDID: { eq: "%s" } }) {
-					uid
-					email
-					emailDID
-					status
-				}
+		query = fmt.Sprintf(`{
+			user(func: eq(emailDID, "%s")) {
+				uid
+				email
+				emailDID
+				status
 			}
-		`, channelDID)
+		}`, channelDID)
 	case "phone":
-		query = fmt.Sprintf(`
-			query {
-				queryUser(filter: { phoneDID: { eq: "%s" } }) {
-					uid
-					phone
-					phoneDID
-					status
-				}
+		query = fmt.Sprintf(`{
+			user(func: eq(phoneDID, "%s")) {
+				uid
+				phone
+				phoneDID
+				status
 			}
-		`, channelDID)
+		}`, channelDID)
 	default:
 		return false, "", fmt.Errorf("unsupported channel type: %s", channelType)
 	}
@@ -395,12 +386,12 @@ func checkUserExists(channelDID, channelType string) (bool, string, error) {
 
 	// Parse the response
 	var result struct {
-		QueryUser []struct {
+		User []struct {
 			UID    string `json:"uid"`
 			Email  string `json:"email,omitempty"`
 			Phone  string `json:"phone,omitempty"`
 			Status string `json:"status"`
-		} `json:"queryUser"`
+		} `json:"user"`
 	}
 
 	if err := json.Unmarshal([]byte(resp.Json), &result); err != nil {
@@ -408,8 +399,8 @@ func checkUserExists(channelDID, channelType string) (bool, string, error) {
 	}
 
 	// Check if user exists
-	if len(result.QueryUser) > 0 {
-		return true, result.QueryUser[0].UID, nil
+	if len(result.User) > 0 {
+		return true, result.User[0].UID, nil
 	}
 
 	return false, "", nil

@@ -5,6 +5,8 @@ import (
 	"time"
 
 	charonotp "modus/agents/auth/CharonOTP"
+	cerberusmfa "modus/agents/auth/CerberusMFA"
+	"modus/services/webauthn"
 )
 
 // Valid OTP channel values (for reference)
@@ -40,24 +42,120 @@ type VerifyOTPResponse struct {
 	ChannelDID string `json:"channelDID,omitempty"` // Unique identifier for the channel
 }
 
-// Convert main package types to charonotp package types
-func convertToCharonOTPRequest(req OTPRequest) charonotp.OTPRequest {
-	return charonotp.OTPRequest{
-		Channel:   req.Channel, // Now using string instead of enum
-		Recipient: req.Recipient,
-		UserID:    "", // Empty userID since not required for this agent
-	}
+// CerberusMFARequest represents the request for MFA flow decision
+type CerberusMFARequest struct {
+	ChannelDID  string `json:"channelDID"`  // From CharonOTP verification
+	ChannelType string `json:"channelType"` // email, phone, etc.
 }
 
-func convertFromCharonOTPResponse(resp charonotp.OTPResponse) OTPResponse {
-	return OTPResponse{
-		OTPID:     resp.OTPID,
-		Sent:      resp.Sent,
-		Channel:   string(resp.Channel),
-		ExpiresAt: resp.ExpiresAt,
-		Message:   resp.Message,
-	}
+// CerberusMFAResponse represents the MFA flow decision response
+type CerberusMFAResponse struct {
+	UserExists       bool     `json:"userExists"`
+	Action          string   `json:"action"`          // "signin" or "register"
+	UserID          string   `json:"userId,omitempty"`
+	AvailableMethods []string `json:"availableMethods"`
+	NextStep        string   `json:"nextStep"`
+	Message         string   `json:"message"`
 }
+
+// WebAuthn Types for GraphQL
+
+// WebAuthnChallengeRequest represents a request for WebAuthn challenge
+type WebAuthnChallengeRequest struct {
+	UserID      string `json:"userId"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+}
+
+// WebAuthnChallengeResponse represents a WebAuthn challenge response
+type WebAuthnChallengeResponse struct {
+	Challenge              string                    `json:"challenge"`
+	RelyingParty          RelyingPartyInfo          `json:"rp"`
+	User                  UserInfo                  `json:"user"`
+	PubKeyCredParams      []PubKeyCredParam         `json:"pubKeyCredParams"`
+	AuthenticatorSelection AuthenticatorSelection   `json:"authenticatorSelection"`
+	Timeout               int                       `json:"timeout"`
+	Attestation           string                    `json:"attestation"`
+	ExcludeCredentials    []PublicKeyCredDescriptor `json:"excludeCredentials,omitempty"`
+}
+
+type RelyingPartyInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type UserInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+}
+
+type PubKeyCredParam struct {
+	Type string `json:"type"`
+	Alg  int    `json:"alg"`
+}
+
+type AuthenticatorSelection struct {
+	AuthenticatorAttachment string `json:"authenticatorAttachment,omitempty"`
+	RequireResidentKey      bool   `json:"requireResidentKey"`
+	UserVerification        string `json:"userVerification"`
+}
+
+type PublicKeyCredDescriptor struct {
+	Type       string   `json:"type"`
+	ID         string   `json:"id"`
+	Transports []string `json:"transports,omitempty"`
+}
+
+// WebAuthnRegistrationRequest represents a WebAuthn registration request
+type WebAuthnRegistrationRequest struct {
+	UserID            string `json:"userId"`
+	Challenge         string `json:"challenge"`
+	ClientDataJSON    string `json:"clientDataJSON"`
+	AttestationObject string `json:"attestationObject"`
+}
+
+// WebAuthnRegistrationResponse represents a WebAuthn registration response
+type WebAuthnRegistrationResponse struct {
+	Success      bool   `json:"success"`
+	CredentialID string `json:"credentialId"`
+	Message      string `json:"message"`
+	UserID       string `json:"userId"`
+}
+
+// WebAuthnAuthRequest represents a WebAuthn authentication request
+type WebAuthnAuthRequest struct {
+	UserID            string `json:"userId"`
+	Challenge         string `json:"challenge"`
+	ClientDataJSON    string `json:"clientDataJSON"`
+	AuthenticatorData string `json:"authenticatorData"`
+	Signature         string `json:"signature"`
+	UserHandle        string `json:"userHandle,omitempty"`
+}
+
+// WebAuthnAuthResponse represents a WebAuthn authentication response
+type WebAuthnAuthResponse struct {
+	Success   bool   `json:"success"`
+	UserID    string `json:"userId"`
+	Message   string `json:"message"`
+	SessionID string `json:"sessionId,omitempty"`
+}
+
+// WebAuthnAssertionChallengeRequest represents a request for assertion challenge
+type WebAuthnAssertionChallengeRequest struct {
+	UserID string `json:"userId,omitempty"`
+}
+
+// WebAuthnAssertionChallengeResponse represents an assertion challenge response
+type WebAuthnAssertionChallengeResponse struct {
+	Challenge        string                    `json:"challenge"`
+	Timeout          int                       `json:"timeout"`
+	RelyingPartyID   string                    `json:"rpId"`
+	AllowCredentials []PublicKeyCredDescriptor `json:"allowCredentials,omitempty"`
+	UserVerification string                    `json:"userVerification"`
+}
+
+
 
 // Convert main package verify types to charonotp package types
 func convertToCharonVerifyRequest(req VerifyOTPRequest) charonotp.VerifyOTPRequest {
@@ -77,32 +175,291 @@ func convertFromCharonVerifyResponse(resp charonotp.VerifyOTPResponse) VerifyOTP
 	}
 }
 
-// SendOTP is the exported wrapper function for Modus
+// SendOTP is the exported wrapper function for Modus GraphQL
 func SendOTP(req OTPRequest) (OTPResponse, error) {
-	// Create context for internal use
-	ctx := context.Background()
-	charonReq := convertToCharonOTPRequest(req)
-	charonResp, err := charonotp.SendOTP(ctx, charonReq)
+	// Convert to charonotp types
+	charonReq := charonotp.OTPRequest{
+		Channel:   req.Channel,
+		Recipient: req.Recipient,
+	}
+	
+	// Call the charonotp agent to send OTP
+	resp, err := charonotp.SendOTP(context.Background(), charonReq)
 	if err != nil {
 		return OTPResponse{}, err
 	}
-	return convertFromCharonOTPResponse(charonResp), nil
+	
+	// Convert response back to main types
+	return OTPResponse{
+		OTPID:     resp.OTPID,
+		Sent:      resp.Sent,
+		Channel:   resp.Channel,
+		ExpiresAt: resp.ExpiresAt,
+		Message:   resp.Message,
+	}, nil
 }
 
 // VerifyOTP is the exported wrapper function for Modus
 func VerifyOTP(req VerifyOTPRequest) (VerifyOTPResponse, error) {
-	// Convert to internal type and call the implementation
+	// Convert to charonotp types
 	charonReq := convertToCharonVerifyRequest(req)
+
+	// Call the charonotp agent
 	resp, err := charonotp.VerifyOTP(charonReq)
 	if err != nil {
 		return VerifyOTPResponse{}, err
 	}
-	
-	// Convert response back to main package type
+
+	// Convert response back to main types
 	return convertFromCharonVerifyResponse(resp), nil
 }
 
+// Convert main package types to cerberusmfa package types
+func convertToCerberusMFARequest(req CerberusMFARequest) cerberusmfa.CerberusMFARequest {
+	return cerberusmfa.CerberusMFARequest{
+		ChannelDID:  req.ChannelDID,
+		ChannelType: req.ChannelType,
+	}
+}
+
+// Convert cerberusmfa package types to main package types
+func convertFromCerberusMFAResponse(resp *cerberusmfa.CerberusMFAResponse) CerberusMFAResponse {
+	return CerberusMFAResponse{
+		UserExists:       resp.UserExists,
+		Action:          resp.Action,
+		UserID:          resp.UserID,
+		AvailableMethods: resp.AvailableMethods,
+		NextStep:        resp.NextStep,
+		Message:         resp.Message,
+	}
+}
+
+// CheckUserAndRoute determines if user should signin or register after OTP verification
+func CheckUserAndRoute(req CerberusMFARequest) (CerberusMFAResponse, error) {
+	// Convert to cerberusmfa types
+	cerberusReq := convertToCerberusMFARequest(req)
+
+	// Call the cerberusmfa agent
+	resp, err := cerberusmfa.CerberusMFA(cerberusReq)
+	if err != nil {
+		return CerberusMFAResponse{}, err
+	}
+
+	// Convert response back to main types
+	return convertFromCerberusMFAResponse(resp), nil
+}
+
+// SigninUser handles existing user signin flow (placeholder for WebAuthn/Passwordless integration)
+func SigninUser(req CerberusMFARequest) (CerberusMFAResponse, error) {
+	// First check if user exists and get routing info
+	routeResp, err := CheckUserAndRoute(req)
+	if err != nil {
+		return CerberusMFAResponse{}, err
+	}
+
+	// If user doesn't exist, return error
+	if !routeResp.UserExists {
+		return CerberusMFAResponse{
+			UserExists: false,
+			Action:     "register",
+			Message:    "User not found. Please register first.",
+		}, nil
+	}
+
+	// For existing users, prepare signin response
+	return CerberusMFAResponse{
+		UserExists:       true,
+		Action:          "signin",
+		UserID:          routeResp.UserID,
+		AvailableMethods: routeResp.AvailableMethods,
+		NextStep:        "webauthn_or_passwordless",
+		Message:         "User verified. Proceed with WebAuthn or Passwordless signin.",
+	}, nil
+}
+
+// RegisterUser handles new user registration flow (placeholder for HecateRegister integration)
+func RegisterUser(req CerberusMFARequest) (CerberusMFAResponse, error) {
+	// First check if user already exists
+	routeResp, err := CheckUserAndRoute(req)
+	if err != nil {
+		return CerberusMFAResponse{}, err
+	}
+
+	// If user already exists, return error
+	if routeResp.UserExists {
+		return CerberusMFAResponse{
+			UserExists: true,
+			Action:     "signin",
+			Message:    "User already exists. Please signin instead.",
+		}, nil
+	}
+
+	// For new users, prepare registration response
+	return CerberusMFAResponse{
+		UserExists:       false,
+		Action:          "register",
+		AvailableMethods: []string{"profile_creation", "identity_verification"},
+		NextStep:        "user_profile_creation",
+		Message:         "New user detected. Proceed with registration and profile creation.",
+	}, nil
+}
+
+// WebAuthn Integration Functions
+
+// CreateWebAuthnRegistrationChallenge creates a WebAuthn registration challenge
+func CreateWebAuthnRegistrationChallenge(req WebAuthnChallengeRequest) (WebAuthnChallengeResponse, error) {
+	// Call CerberusMFA integration function
+	response, err := cerberusmfa.InitiateWebAuthnRegistration(req.UserID, req.Username, req.DisplayName)
+	if err != nil {
+		return WebAuthnChallengeResponse{}, err
+	}
+
+	// Convert response
+	return convertFromWebAuthnChallengeResponse(*response), nil
+}
+
+// VerifyWebAuthnRegistration verifies a WebAuthn registration
+func VerifyWebAuthnRegistration(req WebAuthnRegistrationRequest) (WebAuthnRegistrationResponse, error) {
+	// Convert to service types
+	serviceReq := webauthn.RegistrationRequest{
+		UserID:            req.UserID,
+		Challenge:         req.Challenge,
+		ClientDataJSON:    req.ClientDataJSON,
+		AttestationObject: req.AttestationObject,
+	}
+
+	// Call CerberusMFA integration function
+	response, err := cerberusmfa.VerifyWebAuthnRegistration(serviceReq)
+	if err != nil {
+		return WebAuthnRegistrationResponse{}, err
+	}
+
+	// Convert response
+	return convertFromWebAuthnRegistrationResponse(*response), nil
+}
+
+// CreateWebAuthnAuthenticationChallenge creates a WebAuthn authentication challenge
+func CreateWebAuthnAuthenticationChallenge(req WebAuthnAssertionChallengeRequest) (WebAuthnAssertionChallengeResponse, error) {
+	// Call CerberusMFA integration function
+	response, err := cerberusmfa.InitiateWebAuthnAuthentication(req.UserID)
+	if err != nil {
+		return WebAuthnAssertionChallengeResponse{}, err
+	}
+
+	// Convert response
+	return convertFromWebAuthnAssertionResponse(*response), nil
+}
+
+// VerifyWebAuthnAuthentication verifies a WebAuthn authentication
+func VerifyWebAuthnAuthentication(req WebAuthnAuthRequest) (WebAuthnAuthResponse, error) {
+	// Convert to service types
+	serviceReq := webauthn.AuthenticationRequest{
+		UserID:            req.UserID,
+		Challenge:         req.Challenge,
+		ClientDataJSON:    req.ClientDataJSON,
+		AuthenticatorData: req.AuthenticatorData,
+		Signature:         req.Signature,
+		UserHandle:        req.UserHandle,
+	}
+
+	// Call CerberusMFA integration function
+	response, err := cerberusmfa.VerifyWebAuthnAuthentication(serviceReq)
+	if err != nil {
+		return WebAuthnAuthResponse{}, err
+	}
+
+	// Convert response
+	return convertFromWebAuthnAuthResponse(*response), nil
+}
+
+// Conversion Functions for WebAuthn
+
+func convertFromWebAuthnChallengeResponse(resp webauthn.ChallengeResponse) WebAuthnChallengeResponse {
+	return WebAuthnChallengeResponse{
+		Challenge: resp.Challenge,
+		RelyingParty: RelyingPartyInfo{
+			ID:   resp.RelyingParty.ID,
+			Name: resp.RelyingParty.Name,
+		},
+		User: UserInfo{
+			ID:          resp.User.ID,
+			Name:        resp.User.Name,
+			DisplayName: resp.User.DisplayName,
+		},
+		PubKeyCredParams:      convertPubKeyCredParams(resp.PubKeyCredParams),
+		AuthenticatorSelection: convertAuthenticatorSelection(resp.AuthenticatorSelection),
+		Timeout:               resp.Timeout,
+		Attestation:           resp.Attestation,
+		ExcludeCredentials:    convertPublicKeyCredDescriptors(resp.ExcludeCredentials),
+	}
+}
+
+func convertFromWebAuthnRegistrationResponse(resp webauthn.RegistrationResponse) WebAuthnRegistrationResponse {
+	return WebAuthnRegistrationResponse{
+		Success:      resp.Success,
+		CredentialID: resp.CredentialID,
+		Message:      resp.Message,
+		UserID:       resp.UserID,
+	}
+}
+
+func convertFromWebAuthnAssertionResponse(resp webauthn.AssertionChallengeResponse) WebAuthnAssertionChallengeResponse {
+	return WebAuthnAssertionChallengeResponse{
+		Challenge:        resp.Challenge,
+		Timeout:          resp.Timeout,
+		RelyingPartyID:   resp.RelyingPartyID,
+		AllowCredentials: convertPublicKeyCredDescriptors(resp.AllowCredentials),
+		UserVerification: resp.UserVerification,
+	}
+}
+
+func convertFromWebAuthnAuthResponse(resp webauthn.AuthenticationResponse) WebAuthnAuthResponse {
+	return WebAuthnAuthResponse{
+		Success:   resp.Success,
+		UserID:    resp.UserID,
+		Message:   resp.Message,
+		SessionID: resp.SessionID,
+	}
+}
+
+// Helper conversion functions
+func convertPubKeyCredParams(params []webauthn.PubKeyCredParam) []PubKeyCredParam {
+	result := make([]PubKeyCredParam, len(params))
+	for i, p := range params {
+		result[i] = PubKeyCredParam{
+			Type: p.Type,
+			Alg:  p.Alg,
+		}
+	}
+	return result
+}
+
+func convertAuthenticatorSelection(sel webauthn.AuthenticatorSelection) AuthenticatorSelection {
+	return AuthenticatorSelection{
+		AuthenticatorAttachment: sel.AuthenticatorAttachment,
+		RequireResidentKey:      sel.RequireResidentKey,
+		UserVerification:        sel.UserVerification,
+	}
+}
+
+func convertPublicKeyCredDescriptors(descs []webauthn.PublicKeyCredDescriptor) []PublicKeyCredDescriptor {
+	result := make([]PublicKeyCredDescriptor, len(descs))
+	for i, d := range descs {
+		result[i] = PublicKeyCredDescriptor{
+			Type:       d.Type,
+			ID:         d.ID,
+			Transports: d.Transports,
+		}
+	}
+	return result
+}
+
 func main() {
-	// Explorer will use the exported functions
-	// No actual implementation needed here
+	// This function is required by Modus but can be empty
+	// All functionality is exposed through exported functions
+}
+
+// TestSimpleFunction is a basic test function to check GraphQL discovery
+func TestSimpleFunction(input string) (string, error) {
+	return "Hello from test function: " + input, nil
 }

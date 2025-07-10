@@ -78,7 +78,7 @@ func generateUserID() string {
 }
 
 // tokenizePII handles PII tokenization via internal/pii service
-func tokenizePII(ctx context.Context, req PIITokenizationRequest) (*PIITokenizationResponse, error) {
+func tokenizePII(req PIITokenizationRequest) (*PIITokenizationResponse, error) {
 	// TODO: Integrate with internal/pii service for ISO-compliant tokenization
 	// For now, return placeholder tokens
 	tokens := map[string]string{
@@ -101,7 +101,7 @@ func tokenizePII(ctx context.Context, req PIITokenizationRequest) (*PIITokenizat
 }
 
 // triggerIdentityCheck initiates identity verification via JanusFace
-func triggerIdentityCheck(ctx context.Context, userID string, channelType string, recipient string) (string, error) {
+func triggerIdentityCheck(userID string) (string, error) {
 	// TODO: Integrate with JanusFace agent for identity enrollment
 	// For now, return placeholder identity check ID
 	identityCheckID := fmt.Sprintf("id_check_%s_%d", userID, time.Now().UnixNano())
@@ -111,7 +111,7 @@ func triggerIdentityCheck(ctx context.Context, userID string, channelType string
 }
 
 // emitAuditEvent creates an ISO-compliant audit trail entry
-func emitAuditEvent(ctx context.Context, event AuditEvent) (string, error) {
+func emitAuditEvent(event AuditEvent) (string, error) {
 	// TODO: Integrate with ISO audit-trail system
 	// For now, log the event and return placeholder audit ID
 	auditID := fmt.Sprintf("audit_%d", time.Now().UnixNano())
@@ -123,7 +123,7 @@ func emitAuditEvent(ctx context.Context, event AuditEvent) (string, error) {
 }
 
 // createUserInDgraph stores the new user record in Dgraph
-func createUserInDgraph(ctx context.Context, req UserRegistrationRequest, userID string, piiTokens map[string]string) error {
+func createUserInDgraph(req UserRegistrationRequest, userID string) error {
 	// Determine channel DID field based on channel type
 	var channelDIDField, channelField, channelVerifiedField string
 	var channelValue string
@@ -209,7 +209,7 @@ func RegisterUser(ctx context.Context, req UserRegistrationRequest) (UserRegistr
 		piiReq.Phone = req.Recipient
 	}
 	
-	piiResp, err := tokenizePII(ctx, piiReq)
+	piiResp, err := tokenizePII(piiReq)
 	if err != nil {
 		return UserRegistrationResponse{
 			Success: false,
@@ -218,7 +218,7 @@ func RegisterUser(ctx context.Context, req UserRegistrationRequest) (UserRegistr
 	}
 	
 	// Step 2: Create user record in Dgraph
-	if err := createUserInDgraph(ctx, req, userID, piiResp.Tokens); err != nil {
+	if err := createUserInDgraph(req, userID); err != nil {
 		return UserRegistrationResponse{
 			Success: false,
 			Message: "Failed to create user account",
@@ -226,7 +226,7 @@ func RegisterUser(ctx context.Context, req UserRegistrationRequest) (UserRegistr
 	}
 	
 	// Step 3: Trigger identity verification
-	identityCheckID, err := triggerIdentityCheck(ctx, userID, req.ChannelType, req.Recipient)
+	identityCheckID, err := triggerIdentityCheck(userID)
 	if err != nil {
 		fmt.Printf("⚠️ Identity check failed (non-critical): %v\n", err)
 		// Don't fail registration if identity check fails
@@ -248,7 +248,7 @@ func RegisterUser(ctx context.Context, req UserRegistrationRequest) (UserRegistr
 		},
 	}
 	
-	auditEventID, err := emitAuditEvent(ctx, auditEvent)
+	auditEventID, err := emitAuditEvent(auditEvent)
 	if err != nil {
 		fmt.Printf("⚠️ Audit event failed (non-critical): %v\n", err)
 		// Don't fail registration if audit fails
