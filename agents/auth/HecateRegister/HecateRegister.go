@@ -128,17 +128,18 @@ func createUserInDgraph(req UserRegistrationRequest, userID string) error {
 	var channelDIDField, channelField, channelVerifiedField string
 	var channelValue string
 	
-	if req.ChannelType == "email" {
+	switch req.ChannelType {
+	case "email":
 		channelDIDField = "emailDID"
 		channelField = "email"
 		channelVerifiedField = "emailVerified"
 		channelValue = req.Recipient
-	} else if req.ChannelType == "phone" {
+	case "phone":
 		channelDIDField = "phoneDID"
 		channelField = "phone"
 		channelVerifiedField = "phoneVerified"
 		channelValue = req.Recipient
-	} else {
+	default:
 		return fmt.Errorf("unsupported channel type: %s", req.ChannelType)
 	}
 	
@@ -203,9 +204,10 @@ func RegisterUser(ctx context.Context, req UserRegistrationRequest) (UserRegistr
 		LastName:  req.LastName,
 	}
 	
-	if req.ChannelType == "email" {
+	switch req.ChannelType {
+	case "email":
 		piiReq.Email = req.Recipient
-	} else if req.ChannelType == "phone" {
+	case "phone":
 		piiReq.Phone = req.Recipient
 	}
 	
