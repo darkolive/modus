@@ -1,6 +1,6 @@
 # Combined DQL Schema for DO Study LMS
 # Auto-generated from individual .dql files
-# Generated on: Wed Jul  9 23:42:09 BST 2025
+# Generated on: Fri Jul 11 08:57:37 BST 2025
 
 
 # ============================================
@@ -9,7 +9,7 @@
 accessibilityNeeds: [string] .
 accessToken: string .
 achievements: [uid] .
-action: uid .
+action: string @index(exact) .
 actionTypes: [uid] .
 addedAt: datetime @index(hour) .
 additional: string .                    # JSON string .
@@ -21,7 +21,12 @@ awardedAt: datetime @index(hour) .
 birthYear: int @index(int) .            # Less granular than full DOB .
 brand: string .
 browser: string .
-category: uid .
+byAction: [AuditEntry] @reverse .
+byCategory: [AuditEntry] @reverse .
+byPerformedBy: [AuditEntry] @reverse .
+bySource: [AuditEntry] @reverse .
+byTimeRange: [AuditEntry] @reverse .
+category: string @index(exact) .
 centre: uid .
 certificates: [uid] .
 challenge: string @index(exact) .
@@ -44,6 +49,7 @@ credentialId: string @index(exact) .
 dashboardPreferences: [string] .
 defaultDashboard: string .
 description: string .
+details: string .
 device: string .
 deviceId: string @index(exact) .
 diagnoses: [uid] .
@@ -82,6 +88,7 @@ method: string @index(exact) .
 model: string .
 name: string @index(exact) .
 nationality: string .
+newValue: string .
 notes: string .
 objectId: string @index(exact) .
 objectType: string @index(exact) .      # COURSE_UNIT_VERSION, LESSON_PLAN, etc .
@@ -91,12 +98,14 @@ os: string .
 osVersion: string .
 otpHash: string @index(exact) .
 passed: bool .
+performedBy: string @index(exact) .
 permissions: [uid] .
 phone: string .
 platform: string @index(exact) .       # FACEBOOK, TWITTER, LINKEDIN, etc .
 postalAddress: uid .
 postalCode: string @index(exact) .
 preferredPronouns: string .
+previousValue: string .
 primary: bool @index(bool) .
 profile: uid .
 progress: [uid] .
@@ -109,6 +118,7 @@ region: string .
 relationship: string .
 response: string .
 result: uid .
+retentionDate: datetime @index(hour) .
 reviewedAt: datetime .
 reviews: [uid] .
 revokedAt: datetime .
@@ -116,7 +126,9 @@ roles: [uid] .
 sampledAssessments: [uid] .
 scopes: [string] .
 score: float .
+severity: string @index(exact) .
 signCount: int .
+source: string @index(exact) .
 statementsCount: int .
 status: string @index(exact) .          # PENDING, ACTIVE, SUSPENDED, DELETED .
 street1: string .
@@ -148,6 +160,30 @@ wallet: uid .
 # ============================================
 # TYPES (structure definitions)
 # ============================================
+
+# audit_audit types
+type AuditEntry {
+  id: string
+  category: string
+  action: string
+  objectType: string
+  objectId: string
+  performedBy: string
+  timestamp: datetime
+  details: string
+  previousValue: string
+  newValue: string
+  severity: string
+  source: string
+  retentionDate: datetime
+}
+type AuditQuery {
+  byCategory: [AuditEntry]
+  byAction: [AuditEntry]
+  byPerformedBy: [AuditEntry]
+  byTimeRange: [AuditEntry]
+  bySource: [AuditEntry]
+}
 
 # auth_otp_otp types
 type ChannelOTP {
