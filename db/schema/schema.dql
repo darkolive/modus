@@ -361,7 +361,7 @@ type UserMedical {
     consented: bool
     lastUpdated: datetime
 }
-type Diagnosis {
+type UserDiagnosis {
     condition: string
     notes: string
     disclosedByUser: bool

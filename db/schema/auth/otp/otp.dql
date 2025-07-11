@@ -1,13 +1,13 @@
 # Channel OTP (hashed)
 
 type ChannelOTP {
-    user: uid 
-    otpHash: string @index(exact) 
-    expiresAt: datetime @index(hour) 
-    createdAt: datetime @index(hour) 
-    verified: bool @index(bool) 
-    used: bool @index(bool) 
-    purpose: string @index(exact) 
-    channelType: string @index(exact) 
-    channelHash: string @index(exact) 
+    user: uid
+    otpHash: string
+    expiresAt: datetime
+    createdAt: datetime
+    verified: bool
+    used: bool
+    purpose: string
+    channelType: string
+    channelHash: string
 }

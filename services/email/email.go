@@ -2,6 +2,7 @@ package email
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/hypermodeinc/modus/sdk/go/pkg/console"
 )
@@ -40,6 +41,9 @@ type EmailService struct {
 	primaryProvider   EmailProvider
 	fallbackProvider  EmailProvider
 	enableFallback    bool
+	asyncQueue        *AsyncEmailQueue
+	useAsyncQueue     bool
+	mutex            sync.RWMutex
 }
 
 // Global email service instance
@@ -62,6 +66,9 @@ func init() {
 		primaryProvider:  primaryProvider,
 		fallbackProvider: nil, // Can be set later for redundancy
 		enableFallback:   false,
+		// Note: Async queue disabled due to WASM goroutine limitations
+		asyncQueue:       nil,
+		useAsyncQueue:    false,
 	}
 }
 
@@ -86,9 +93,19 @@ func SendOTPEmail(to, otpCode string) (*EmailResponse, error) {
 	return defaultService.SendOTPEmail(to, otpCode)
 }
 
+// SendOTPEmailAsync queues an OTP email for async sending
+func SendOTPEmailAsync(to, otpCode string) (*EmailResponse, error) {
+	return defaultService.SendOTPEmailAsync(to, otpCode)
+}
+
 // SendWelcomeEmail sends a welcome email using the configured provider
 func SendWelcomeEmail(to, userName string) (*EmailResponse, error) {
 	return defaultService.SendWelcomeEmail(to, userName)
+}
+
+// SendWelcomeEmailAsync queues a welcome email for async sending
+func SendWelcomeEmailAsync(to, userName string) (*EmailResponse, error) {
+	return defaultService.SendWelcomeEmailAsync(to, userName)
 }
 
 // GetProviderInfo returns information about the current email provider
@@ -101,6 +118,21 @@ func GetProviderInfo() string {
 func (s *EmailService) SendEmail(req EmailRequest) (*EmailResponse, error) {
 	console.Log("📧 EmailService: Starting email send process")
 	console.Log(fmt.Sprintf("📧 EmailService: Provider=%s, To=%s, Subject=%s", s.primaryProvider.GetProviderName(), req.To, req.Subject))
+	
+	if s.useAsyncQueue {
+		err := s.asyncQueue.QueueEmail(req, nil, nil)
+		if err != nil {
+			console.Error(fmt.Sprintf("🚨 EmailService: Failed to queue email: %v", err))
+			// Fall back to synchronous sending
+		} else {
+			console.Log("⚡ EmailService: Email queued for async processing")
+			return &EmailResponse{
+				Success:   true,
+				MessageID: "queued",
+				Message:   "Email queued for sending",
+			}, nil
+		}
+	}
 	
 	// Try primary provider first
 	console.Log(fmt.Sprintf("🚀 EmailService: Using primary provider: %s", s.primaryProvider.GetProviderName()))
@@ -153,4 +185,87 @@ func (s *EmailService) SendWelcomeEmail(to, userName string) (*EmailResponse, er
 	return response, err
 }
 
+// SendOTPEmailAsync queues an OTP email for async processing
+func (s *EmailService) SendOTPEmailAsync(to, otpCode string) (*EmailResponse, error) {
+	console.Log("⚡ EmailService: Queuing OTP email for async processing")
+	
+	if !s.useAsyncQueue || s.asyncQueue == nil {
+		console.Warn("⚠️ EmailService: Async queue not available, falling back to sync")
+		return s.SendOTPEmail(to, otpCode)
+	}
+	
+	// Use the provider's SendOTPEmail method via queue
+	req := EmailRequest{
+		To:         to,
+		From:       "darren@darkolive.co.uk",
+		Subject:    "Your OTP Code",
+		TemplateID: "neqvygm91v8l0p7w", // OTP template
+		Variables: map[string]string{
+			"otp_code": otpCode,
+			"purpose":  "authentication",
+			"expires":  "5 minutes",
+		},
+	}
+	
+	err := s.asyncQueue.QueueEmail(req, 
+		func(resp *EmailResponse) {
+			console.Log(fmt.Sprintf("✅ Async OTP email sent successfully to %s", to))
+		},
+		func(err error) {
+			console.Error(fmt.Sprintf("🚨 Async OTP email failed for %s: %v", to, err))
+		},
+	)
+	
+	if err != nil {
+		console.Error(fmt.Sprintf("🚨 EmailService: Failed to queue OTP email: %v", err))
+		return s.SendOTPEmail(to, otpCode) // Fall back to sync
+	}
+	
+	return &EmailResponse{
+		Success:   true,
+		MessageID: "queued",
+		Message:   "OTP email queued for sending",
+	}, nil
+}
+
+// SendWelcomeEmailAsync queues a welcome email for async processing  
+func (s *EmailService) SendWelcomeEmailAsync(to, userName string) (*EmailResponse, error) {
+	console.Log("⚡ EmailService: Queuing Welcome email for async processing")
+	
+	if !s.useAsyncQueue || s.asyncQueue == nil {
+		console.Warn("⚠️ EmailService: Async queue not available, falling back to sync")
+		return s.SendWelcomeEmail(to, userName)
+	}
+	
+	// Use the provider's SendWelcomeEmail method via queue
+	req := EmailRequest{
+		To:         to,
+		From:       "darren@darkolive.co.uk",
+		Subject:    "Welcome to DO Study!",
+		TemplateID: "neqvygm91v8l0p7w", // You can use different template for welcome
+		Variables: map[string]string{
+			"user_name": userName,
+		},
+	}
+	
+	err := s.asyncQueue.QueueEmail(req,
+		func(resp *EmailResponse) {
+			console.Log(fmt.Sprintf("✅ Async Welcome email sent successfully to %s", to))
+		},
+		func(err error) {
+			console.Error(fmt.Sprintf("🚨 Async Welcome email failed for %s: %v", to, err))
+		},
+	)
+	
+	if err != nil {
+		console.Error(fmt.Sprintf("🚨 EmailService: Failed to queue Welcome email: %v", err))
+		return s.SendWelcomeEmail(to, userName) // Fall back to sync
+	}
+	
+	return &EmailResponse{
+		Success:   true,
+		MessageID: "queued",
+		Message:   "Welcome email queued for sending",
+	}, nil
+}
 

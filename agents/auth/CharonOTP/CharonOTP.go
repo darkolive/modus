@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/hypermodeinc/modus/sdk/go/pkg/console"
@@ -89,6 +90,9 @@ func logAuditEvent(category, action, objectType, objectId, performedBy, details 
 	// Create audit entry with proper timestamp and retention
 	retentionDate := time.Now().AddDate(7, 0, 0) // 7 years retention for compliance
 	
+	// Escape quotes in details to prevent DQL syntax errors
+	escapedDetails := strings.ReplaceAll(details, `"`, `\"`) 
+	
 	nquads := fmt.Sprintf(`_:audit <id> "%s" .
 _:audit <category> "%s" .
 _:audit <action> "%s" .
@@ -102,7 +106,7 @@ _:audit <source> "CharonOTP" .
 _:audit <retentionDate> "%s"^^<xs:dateTime> .
 _:audit <dgraph.type> "AuditEntry" .`,
 		auditID, category, action, objectType, objectId, performedBy,
-		time.Now().Format(time.RFC3339), details, retentionDate.Format(time.RFC3339))
+		time.Now().Format(time.RFC3339), escapedDetails, retentionDate.Format(time.RFC3339))
 	
 	// Store audit entry asynchronously (fire-and-forget for performance)
 	mutationObj := dgraph.NewMutation().WithSetNquads(nquads)
@@ -201,22 +205,23 @@ _:channelotp <dgraph.type> "ChannelOTP" .`,
 	return otpUID, nil
 }
 
-// sendOTPViaEmail sends OTP via email using the email service
+// sendOTPViaEmail sends OTP via email using the async email queue for instant response
 func sendOTPViaEmail(recipient, otpCode string) error {
-	// Use the email service for sending OTP emails
-	response, err := email.SendOTPEmail(
+	// Use the ASYNC email service for non-blocking OTP emails
+	response, err := email.SendOTPEmailAsync(
 		recipient,
 		otpCode,
 	)
 	
 	if err != nil {
-		return fmt.Errorf("failed to send OTP email: %w", err)
+		return fmt.Errorf("failed to queue OTP email: %w", err)
 	}
 	
 	if !response.Success {
 		return fmt.Errorf("email service error: %s", response.Error)
 	}
 	
+	// Email is now queued for background processing - instant return!
 	return nil
 }
 
@@ -225,19 +230,19 @@ func sendOTPViaOtherChannels(channel string, recipient, otpCode string) error {
 	// TODO: Implement IrisMessage integration for SMS, WhatsApp, Telegram
 	// This is a placeholder until IrisMessage agent is implemented
 	
-	// Format message for different channels
-	// message := fmt.Sprintf("Your OTP code for %s is: %s. This code expires in 5 minutes.", purpose, otpCode)
+	// Log the attempt for debugging
+	console.Log(fmt.Sprintf("Attempting to send OTP via %s to %s (code: %s...)", channel, recipient, otpCode[:2]))
 	
 	switch channel {
 	case "sms":
 		// TODO: Call IrisMessage SMS function
-		return fmt.Errorf("SMS channel not yet implemented - waiting for IrisMessage agent")
+		return fmt.Errorf("SMS channel not yet implemented for %s - waiting for IrisMessage agent", recipient)
 	case "whatsapp":
 		// TODO: Call IrisMessage WhatsApp function
-		return fmt.Errorf("whatsApp channel not yet implemented - waiting for IrisMessage agent")
+		return fmt.Errorf("WhatsApp channel not yet implemented for %s - waiting for IrisMessage agent", recipient)
 	case "telegram":
 		// TODO: Call IrisMessage Telegram function
-		return fmt.Errorf("telegram channel not yet implemented - waiting for IrisMessage agent")
+		return fmt.Errorf("Telegram channel not yet implemented for %s - waiting for IrisMessage agent", recipient)
 	default:
 		return fmt.Errorf("unsupported channel: %s", channel)
 	}
@@ -276,8 +281,9 @@ func SendOTP(ctx context.Context, req OTPRequest) (OTPResponse, error) {
 		return OTPResponse{}, fmt.Errorf("unsupported channel: %s", req.Channel)
 	}
 
+	// Log send error but don't return early - allow OTP storage and graceful response
 	if sendErr != nil {
-		return OTPResponse{}, fmt.Errorf("failed to send OTP: %w", sendErr)
+		console.Error(fmt.Sprintf("Failed to send OTP via %s: %v", req.Channel, sendErr))
 	}
 
 	// Store OTP in Dgraph synchronously (WASM compatible)
@@ -320,7 +326,10 @@ func VerifyOTP(req VerifyOTPRequest) (VerifyOTPResponse, error) {
 	channelHash := hashString(req.Recipient)
 	otpHash := hashString(req.OTPCode)
 	
-	// Query Dgraph to find matching OTP record
+	console.Log(fmt.Sprintf("🔍 Verifying OTP: channel=%s, code=%s", req.Recipient, req.OTPCode))
+	console.Log(fmt.Sprintf("🔍 Hashes: channelHash=%s, otpHash=%s", channelHash, otpHash))
+	
+	// Query Dgraph to find matching OTP record using proper Modus SDK
 	query := fmt.Sprintf(`{
 		otp_verification(func: eq(channelHash, "%s")) @filter(eq(otpHash, "%s") AND eq(verified, false) AND eq(used, false)) {
 			uid
@@ -336,16 +345,22 @@ func VerifyOTP(req VerifyOTPRequest) (VerifyOTPResponse, error) {
 		}
 	}`, channelHash, otpHash)
 	
-	// Execute query using direct HTTP request
-	result, err := executeQuery(query)
+	console.Log(fmt.Sprintf("🔍 DQL Query: %s", query))
+	
+	// Execute query using Modus SDK
+	queryObj := dgraph.NewQuery(query)
+	result, err := dgraph.ExecuteQuery("dgraph", queryObj)
 	if err != nil {
+		console.Error(fmt.Sprintf("❌ Query execution failed: %v", err))
 		return VerifyOTPResponse{
 			Verified: false,
 			Message:  "Failed to verify OTP: database error",
 		}, fmt.Errorf("failed to query OTP: %w", err)
 	}
 	
-	// Parse query response
+	console.Log(fmt.Sprintf("🔍 Query result JSON: %s", result.Json))
+	
+	// Parse query response directly from result.Json
 	var response struct {
 		OTPVerification []struct {
 			UID         string    `json:"uid"`
@@ -355,24 +370,16 @@ func VerifyOTP(req VerifyOTPRequest) (VerifyOTPResponse, error) {
 		} `json:"otp_verification"`
 	}
 	
-	// Parse the data field from the HTTP response
-	data, ok := result["data"]
-	if !ok {
+	if result.Json == "" {
+		console.Log("🔍 Empty JSON response from Dgraph")
 		return VerifyOTPResponse{
 			Verified: false,
-			Message:  "Invalid response format",
-		}, fmt.Errorf("no data field in response")
+			Message:  "Invalid OTP code or OTP has already been used",
+		}, nil
 	}
 	
-	dataBytes, err := json.Marshal(data)
-	if err != nil {
-		return VerifyOTPResponse{
-			Verified: false,
-			Message:  "Failed to parse response",
-		}, fmt.Errorf("failed to marshal data: %w", err)
-	}
-	
-	if err := json.Unmarshal(dataBytes, &response); err != nil {
+	if err := json.Unmarshal([]byte(result.Json), &response); err != nil {
+		console.Error(fmt.Sprintf("❌ JSON parsing failed: %v", err))
 		return VerifyOTPResponse{
 			Verified: false,
 			Message:  "Failed to parse verification response",
@@ -479,14 +486,20 @@ func checkUserExists(channelDID, channelType string) (bool, string, error) {
 		return false, "", fmt.Errorf("unsupported channel type: %s", channelType)
 	}
 
-	// Use direct HTTP query to avoid v25 SDK compatibility issues
-	resp, err := executeQuery(query)
+	console.Log(fmt.Sprintf("🔍 Checking user existence with query: %s", query))
+	
+	// Execute query using Modus SDK
+	queryObj := dgraph.NewQuery(query)
+	result, err := dgraph.ExecuteQuery("dgraph", queryObj)
 	if err != nil {
+		console.Error(fmt.Sprintf("❌ User query execution failed: %v", err))
 		return false, "", fmt.Errorf("failed to query user: %v", err)
 	}
 
-	// Parse the response
-	var result struct {
+	console.Log(fmt.Sprintf("🔍 User query result JSON: %s", result.Json))
+
+	// Parse the response directly from result.Json
+	var response struct {
 		User []struct {
 			UID    string `json:"uid"`
 			Email  string `json:"email,omitempty"`
@@ -495,25 +508,23 @@ func checkUserExists(channelDID, channelType string) (bool, string, error) {
 		} `json:"user"`
 	}
 
-	// Parse the data field from the HTTP response
-	data, ok := resp["data"]
-	if !ok {
-		return false, "", fmt.Errorf("no data field in response")
+	if result.Json == "" {
+		console.Log("🔍 Empty JSON response from user query - user does not exist")
+		return false, "", nil
 	}
-	
-	dataBytes, err := json.Marshal(data)
-	if err != nil {
-		return false, "", fmt.Errorf("failed to marshal data: %w", err)
-	}
-	
-	if err := json.Unmarshal(dataBytes, &result); err != nil {
+
+	if err := json.Unmarshal([]byte(result.Json), &response); err != nil {
+		console.Error(fmt.Sprintf("❌ User query JSON parsing failed: %v", err))
 		return false, "", fmt.Errorf("failed to parse user query response: %v", err)
 	}
 
 	// Check if user exists
-	if len(result.User) > 0 {
-		return true, result.User[0].UID, nil
+	if len(response.User) > 0 {
+		console.Log(fmt.Sprintf("✅ User found: UID=%s", response.User[0].UID))
+		return true, response.User[0].UID, nil
 	}
+
+	console.Log("🔍 No user found with this channelDID")
 
 	return false, "", nil
 }

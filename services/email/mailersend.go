@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hypermodeinc/modus/sdk/go/pkg/console"
 	"github.com/hypermodeinc/modus/sdk/go/pkg/http"
 )
 
@@ -30,9 +29,9 @@ func NewMailerSendProvider() EmailProvider {
 
 // SendEmail implements the EmailProvider interface for MailerSend
 func (m *MailerSendProvider) SendEmail(req EmailRequest) (*EmailResponse, error) {
-	console.Log("📧 MailerSend: Starting email send process")
-	console.Log(fmt.Sprintf("📧 MailerSend: To=%s, From=%s, Subject=%s", req.To, req.From, req.Subject))
-	console.Log(fmt.Sprintf("📧 MailerSend: TemplateID=%s", req.TemplateID))
+	// console.Log("📧 MailerSend: Starting email send process")
+	// console.Log(fmt.Sprintf("📧 MailerSend: To=%s, From=%s, Subject=%s", req.To, req.From, req.Subject))
+	// console.Log(fmt.Sprintf("📧 MailerSend: TemplateID=%s", req.TemplateID))
 	
 	// Build MailerSend API request
 	payload := map[string]interface{}{
@@ -51,10 +50,10 @@ func (m *MailerSendProvider) SendEmail(req EmailRequest) (*EmailResponse, error)
 
 	// Add template and variables if provided
 	if req.TemplateID != "" {
-		console.Log(fmt.Sprintf("📧 MailerSend: Using template ID: %s", req.TemplateID))
+		// console.Log(fmt.Sprintf("📧 MailerSend: Using template ID: %s", req.TemplateID))
 		payload["template_id"] = req.TemplateID
 		if len(req.Variables) > 0 {
-			console.Log(fmt.Sprintf("📧 MailerSend: Template variables: %+v", req.Variables))
+			// console.Log(fmt.Sprintf("📧 MailerSend: Template variables: %+v", req.Variables))
 			personalization := []map[string]interface{}{
 				{
 					"email": req.To,
@@ -64,27 +63,27 @@ func (m *MailerSendProvider) SendEmail(req EmailRequest) (*EmailResponse, error)
 			payload["personalization"] = personalization
 		}
 	} else {
-		console.Log("📧 MailerSend: No template ID provided, sending plain email")
+		// console.Log("📧 MailerSend: No template ID provided, sending plain email")
 	}
 
 	// Convert payload to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		console.Error(fmt.Sprintf("🚨 MailerSend: Failed to marshal payload: %v", err))
+		// console.Error(fmt.Sprintf("🚨 MailerSend: Failed to marshal payload: %v", err))
 		return &EmailResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Failed to marshal payload: %v", err),
 		}, err
 	}
-	console.Log(fmt.Sprintf("📧 MailerSend: JSON payload: %s", string(jsonPayload)))
+	// console.Log(fmt.Sprintf("📧 MailerSend: JSON payload: %s", string(jsonPayload)))
 
 	// Make HTTP request using Modus connection
 	// The URL must match the manifest baseUrl exactly
 	url := "https://api.mailersend.com/v1/email/"
-	console.Log("🚀 MailerSend: Making HTTP POST request to MailerSend API")
-	console.Log("🔗 MailerSend: Request URL: " + url)
-	console.Log("📝 MailerSend: Request Method: POST")
-	console.Log(fmt.Sprintf("📝 MailerSend: Payload Size: %d bytes", len(jsonPayload)))
+	// console.Log("🚀 MailerSend: Making HTTP POST request to MailerSend API")
+	// console.Log("🔗 MailerSend: Request URL: " + url)
+	// console.Log("📝 MailerSend: Request Method: POST")
+	// console.Log(fmt.Sprintf("📝 MailerSend: Payload Size: %d bytes", len(jsonPayload)))
 	request := http.NewRequest(url, &http.RequestOptions{
 		Method: "POST",
 		Body:   jsonPayload,
@@ -92,20 +91,20 @@ func (m *MailerSendProvider) SendEmail(req EmailRequest) (*EmailResponse, error)
 	
 	resp, err := http.Fetch(request)
 	if err != nil {
-		console.Error(fmt.Sprintf("🚨 MailerSend: HTTP request failed: %v", err))
+		// console.Error(fmt.Sprintf("🚨 MailerSend: HTTP request failed: %v", err))
 		return &EmailResponse{
 			Success: false,
 			Error:   fmt.Sprintf("HTTP request failed: %v", err),
 		}, err
 	}
 
-	console.Log(fmt.Sprintf("📊 MailerSend: HTTP Response Status: %d %s", resp.Status, resp.StatusText))
-	console.Log(fmt.Sprintf("📊 MailerSend: Response Body Length: %d bytes", len(resp.Body)))
+	// console.Log(fmt.Sprintf("📊 MailerSend: HTTP Response Status: %d %s", resp.Status, resp.StatusText))
+	// console.Log(fmt.Sprintf("📊 MailerSend: Response Body Length: %d bytes", len(resp.Body)))
 
 	// Check if request was successful
 	if !resp.Ok() {
 		responseText := resp.Text()
-		console.Error(fmt.Sprintf("🚨 MailerSend: API Error - Status: %d, Response: %s", resp.Status, responseText))
+		// console.Error(fmt.Sprintf("🚨 MailerSend: API Error - Status: %d, Response: %s", resp.Status, responseText))
 		errorMsg := fmt.Sprintf("MailerSend API error: %d %s - %s", resp.Status, resp.StatusText, responseText)
 		return &EmailResponse{
 			Success: false,
@@ -116,16 +115,16 @@ func (m *MailerSendProvider) SendEmail(req EmailRequest) (*EmailResponse, error)
 	// Handle response parsing - MailerSend may return empty body on success
 	messageID := ""
 	
-	console.Log("🔍 MailerSend: Parsing response body for message ID")
+	// console.Log("🔍 MailerSend: Parsing response body for message ID")
 	// Try to parse response body if it exists
 	if len(resp.Body) > 0 {
-		console.Log(fmt.Sprintf("📝 MailerSend: Response body: %s", string(resp.Body)))
+		// console.Log(fmt.Sprintf("📝 MailerSend: Response body: %s", string(resp.Body)))
 		var response map[string]interface{}
 		if err := json.Unmarshal(resp.Body, &response); err == nil {
-			console.Log(fmt.Sprintf("📝 MailerSend: Parsed response: %+v", response))
+			// console.Log(fmt.Sprintf("📝 MailerSend: Parsed response: %+v", response))
 			// Check for API errors in response
 			if errors, ok := response["errors"]; ok {
-				console.Error(fmt.Sprintf("🚨 MailerSend: API returned errors: %v", errors))
+				// console.Error(fmt.Sprintf("🚨 MailerSend: API returned errors: %v", errors))
 				return &EmailResponse{
 					Success: false,
 					Error:   fmt.Sprintf("MailerSend API errors: %v", errors),
@@ -136,23 +135,23 @@ func (m *MailerSendProvider) SendEmail(req EmailRequest) (*EmailResponse, error)
 			if data, ok := response["data"].(map[string]interface{}); ok {
 				if id, ok := data["message_id"].(string); ok {
 					messageID = id
-					console.Log(fmt.Sprintf("🆔 MailerSend: Extracted message ID: %s", messageID))
+					// console.Log(fmt.Sprintf("🆔 MailerSend: Extracted message ID: %s", messageID))
 				}
 			}
 		} else {
-			console.Warn(fmt.Sprintf("⚠️ MailerSend: Failed to parse response JSON: %v", err))
+			// console.Warn(fmt.Sprintf("⚠️ MailerSend: Failed to parse response JSON: %v", err))
 		}
 	} else {
-		console.Log("📝 MailerSend: Empty response body (normal for MailerSend success)")
+		// console.Log("📝 MailerSend: Empty response body (normal for MailerSend success)")
 	}
 	
 	// If no message ID from body, generate a placeholder since email was sent successfully
 	if messageID == "" {
 		messageID = fmt.Sprintf("sent-%d", resp.Status)
-		console.Log(fmt.Sprintf("🆔 MailerSend: Generated placeholder message ID: %s", messageID))
+		// console.Log(fmt.Sprintf("🆔 MailerSend: Generated placeholder message ID: %s", messageID))
 	}
 
-	console.Log("✅ MailerSend: Email sent successfully!")
+	// console.Log("✅ MailerSend: Email sent successfully!")
 	return &EmailResponse{
 		Success:   true,
 		MessageID: messageID,

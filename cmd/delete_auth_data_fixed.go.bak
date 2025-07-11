@@ -1,0 +1,183 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+)
+
+// Query result for fetching UIDs
+type QueryResult struct {
+	Data struct {
+		ChannelOTPs []struct {
+			UID string `json:"uid"`
+		} `json:"otps"`
+		AuthSessions []struct {
+			UID string `json:"uid"`
+		} `json:"sessions"`
+	} `json:"data"`
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run delete_auth_data_fixed.go <connection_name>")
+		fmt.Println("Example: go run delete_auth_data_fixed.go dgraph")
+		os.Exit(1)
+	}
+
+	fmt.Println("🗑️  Deleting All Authentication Data (HTTP API Approach)...")
+	fmt.Println("============================================================")
+
+	// API configuration
+	baseURL := "https://do-study-do-study.hypermode.host/dgraph"
+	apiKey := "nZgKQjXX2XBRpt" // From .env.dev.local
+
+	// Step 1: Fetch all ChannelOTP UIDs
+	fmt.Println("🔍 Fetching ChannelOTP records to delete...")
+	otpUIDs := fetchOTPUIDs(baseURL, apiKey)
+	fmt.Printf("📊 Found %d ChannelOTP records\n", len(otpUIDs))
+
+	// Step 2: Delete ChannelOTP records
+	if len(otpUIDs) > 0 {
+		fmt.Println("🗑️  Deleting ChannelOTP records...")
+		deleteOTPRecords(baseURL, apiKey, otpUIDs)
+	} else {
+		fmt.Println("✅ No ChannelOTP records to delete")
+	}
+
+	// Step 3: Fetch all AuthSession UIDs  
+	fmt.Println("\n🔍 Fetching AuthSession records to delete...")
+	authUIDs := fetchAuthSessionUIDs(baseURL, apiKey)
+	fmt.Printf("📊 Found %d AuthSession records\n", len(authUIDs))
+
+	// Step 4: Delete AuthSession records
+	if len(authUIDs) > 0 {
+		fmt.Println("🗑️  Deleting AuthSession records...")
+		deleteAuthSessionRecords(baseURL, apiKey, authUIDs)
+	} else {
+		fmt.Println("✅ No AuthSession records to delete")
+	}
+
+	fmt.Println("\n✅ Authentication data deletion completed!")
+	fmt.Println("\n🔍 Verification commands:")
+	fmt.Println("   curl -X POST https://do-study-do-study.hypermode.host/dgraph/query \\")
+	fmt.Println("     --header 'Authorization: Bearer nZgKQjXX2XBRpt' \\")
+	fmt.Println("     --header 'Content-Type: application/json' \\")
+	fmt.Println("     --data '{\"query\": \"{ otps(func: type(ChannelOTP)) { uid } }\"}'")
+}
+
+func fetchOTPUIDs(baseURL, apiKey string) []string {
+	query := `{
+		"query": "{ otps(func: type(ChannelOTP)) { uid } }"
+	}`
+
+	resp := makeHTTPRequest(baseURL+"/query", apiKey, query)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Failed to read OTP query response: %v", err)
+	}
+
+	var result QueryResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		log.Fatalf("Failed to parse OTP query response: %v", err)
+	}
+
+	uids := make([]string, len(result.Data.ChannelOTPs))
+	for i, otp := range result.Data.ChannelOTPs {
+		uids[i] = otp.UID
+	}
+
+	return uids
+}
+
+func fetchAuthSessionUIDs(baseURL, apiKey string) []string {
+	query := `{
+		"query": "{ sessions(func: type(AuthSession)) { uid } }"
+	}`
+
+	resp := makeHTTPRequest(baseURL+"/query", apiKey, query)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Failed to read AuthSession query response: %v", err)
+	}
+
+	var result QueryResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		log.Fatalf("Failed to parse AuthSession query response: %v", err)
+	}
+
+	uids := make([]string, len(result.Data.AuthSessions))
+	for i, auth := range result.Data.AuthSessions {
+		uids[i] = auth.UID
+	}
+
+	return uids
+}
+
+func deleteOTPRecords(baseURL, apiKey string, uids []string) {
+	for i, uid := range uids {
+		fmt.Printf("   Deleting ChannelOTP %d/%d (UID: %s)\n", i+1, len(uids), uid)
+		
+		// Delete all predicates for this UID
+		deleteMutation := fmt.Sprintf(`{
+			"delete": {
+				"uid": "%s"
+			}
+		}`, uid)
+
+		resp := makeHTTPRequest(baseURL+"/mutate", apiKey, deleteMutation)
+		resp.Body.Close()
+		
+		if resp.StatusCode != 200 {
+			log.Printf("⚠️  Warning: Failed to delete ChannelOTP %s (Status: %d)", uid, resp.StatusCode)
+		}
+	}
+	fmt.Printf("✅ Processed %d ChannelOTP deletions\n", len(uids))
+}
+
+func deleteAuthSessionRecords(baseURL, apiKey string, uids []string) {
+	for i, uid := range uids {
+		fmt.Printf("   Deleting AuthSession %d/%d (UID: %s)\n", i+1, len(uids), uid)
+		
+		// Delete all predicates for this UID
+		deleteMutation := fmt.Sprintf(`{
+			"delete": {
+				"uid": "%s"
+			}
+		}`, uid)
+
+		resp := makeHTTPRequest(baseURL+"/mutate", apiKey, deleteMutation)
+		resp.Body.Close()
+		
+		if resp.StatusCode != 200 {
+			log.Printf("⚠️  Warning: Failed to delete AuthSession %s (Status: %d)", uid, resp.StatusCode)
+		}
+	}
+	fmt.Printf("✅ Processed %d AuthSession deletions\n", len(uids))
+}
+
+func makeHTTPRequest(url, apiKey, data string) *http.Response {
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(data)))
+	if err != nil {
+		log.Fatalf("Failed to create HTTP request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Failed to execute HTTP request: %v", err)
+	}
+
+	return resp
+}
