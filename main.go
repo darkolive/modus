@@ -186,7 +186,7 @@ type ValidateSessionRequest struct {
 // ValidateSessionResponse represents the response from session validation
 type ValidateSessionResponse struct {
 	Valid     bool   `json:"valid"`
-	UserID    string `json:"userId,omitempty"`
+	UserID    string `json:"userId"`
 	Message   string `json:"message"`
 	ExpiresAt int64  `json:"expiresAt,omitempty"`
 }

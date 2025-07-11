@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/hypermodeinc/modus/sdk/go/pkg/dgraph"
@@ -199,8 +200,15 @@ func (w *WebAuthnService) VerifyAuthentication(req AuthenticationRequest) (Authe
 		}, nil
 	}
 
+	// Normalize base64 challenges (handle padding differences)
+	clientChallenge := strings.TrimRight(clientData.Challenge, "=")
+	requestChallenge := strings.TrimRight(req.Challenge, "=")
+	
 	// Verify challenge matches
-	if clientData.Challenge != req.Challenge {
+	log.Printf("🔍 WebAuthn: Challenge comparison - Client: '%s' (normalized: '%s'), Request: '%s' (normalized: '%s')", 
+		clientData.Challenge, clientChallenge, req.Challenge, requestChallenge)
+	if clientChallenge != requestChallenge {
+		log.Printf("❌ WebAuthn: Challenge mismatch - Client: '%s' != Request: '%s'", clientChallenge, requestChallenge)
 		return AuthenticationResponse{
 			Success: false,
 			Message: "Challenge mismatch",
@@ -278,17 +286,24 @@ _:challenge <createdAt> "%s" .`,
 
 // verifyChallenge verifies a challenge exists and is not expired
 func (w *WebAuthnService) verifyChallenge(challenge, userID, challengeType string) error {
+	log.Printf("🔍 WebAuthn: Verifying challenge - Challenge: %s, UserID: %s, Type: %s", challenge, userID, challengeType)
+	
 	query := fmt.Sprintf(`{
 		challenges(func: eq(challenge, "%s")) @filter(eq(userId, "%s") AND eq(type, "%s")) {
 			uid
 			expiresAt
 		}
 	}`, challenge, userID, challengeType)
+	
+	log.Printf("🔍 WebAuthn: Challenge query: %s", query)
 
 	resp, err := dgraph.ExecuteQuery("dgraph", dgraph.NewQuery(query))
 	if err != nil {
+		log.Printf("❌ WebAuthn: Query execution failed: %v", err)
 		return err
 	}
+	
+	log.Printf("🔍 WebAuthn: Query response: %s", resp.Json)
 
 	var result struct {
 		Challenges []struct {

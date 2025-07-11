@@ -8,6 +8,7 @@ type WebAuthnCredential {
     addedAt: datetime @index(hour) 
 }
 
+
 # WebAuthn Challenges (temporary storage for registration/authentication)
 type WebAuthnChallenge {
     challenge: string @index(exact) 

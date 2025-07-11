@@ -69,16 +69,32 @@ func CerberusMFA(req CerberusMFARequest) (*CerberusMFAResponse, error) {
 			Message:         "Welcome back! Please complete authentication.",
 		}, nil
 	} else {
-		// New user - proceed to registration flow
+		// New user - create user account first
 		log.Printf("🆕 New user detected for channel %s", req.ChannelDID)
+		
+		// Create the new user with PENDING status and 'registered' role
+		newUserID, err := CreateNewUser(req.ChannelDID, req.ChannelType)
+		if err != nil {
+			log.Printf("❌ Failed to create new user: %v", err)
+			return &CerberusMFAResponse{
+				UserExists:       false,
+				Action:          "error",
+				UserID:          "",
+				AvailableMethods: []string{},
+				NextStep:        "Registration failed",
+				Message:         "Failed to create user account. Please try again.",
+			}, nil
+		}
+		
+		log.Printf("✅ Created new user: %s", newUserID)
 
 		return &CerberusMFAResponse{
-			UserExists:       false,
+			UserExists:       true, // Now the user exists after creation
 			Action:          "register",
-			UserID:          "",
-			AvailableMethods: []string{"passwordless"},
-			NextStep:        "Complete user registration and setup Passwordless authentication",
-			Message:         "Welcome! Let's create your account and set up secure authentication.",
+			UserID:          newUserID,
+			AvailableMethods: []string{"webauthn", "passwordless"},
+			NextStep:        "Complete authentication setup: Choose WebAuthn (biometric/hardware) or Passwordless",
+			Message:         "Welcome! Your account has been created. Please set up secure authentication.",
 		}, nil
 	}
 }
@@ -189,6 +205,92 @@ _:channel <lastUsedAt> "%s" .`,
 
 	log.Printf("✅ Created user channel: %s -> %s", userID, channelType)
 	return nil
+}
+
+// CreateNewUser creates a new user with PENDING status and assigns 'registered' role
+func CreateNewUser(channelDID, channelType string) (string, error) {
+	log.Printf("🆕 Creating new user for channel: %s (%s)", channelDID, channelType)
+	
+	// Generate a unique user ID using timestamp and channel hash
+	userID := fmt.Sprintf("user_%d_%s", time.Now().Unix(), channelDID[len(channelDID)-8:])
+	
+	// First, get the 'registered' role UID
+	roleQuery := `query {
+		registeredRole(func: eq(name, "registered")) {
+			uid
+			name
+		}
+	}`
+	
+	roleResult, err := dgraph.ExecuteQuery("dgraph", dgraph.NewQuery(roleQuery))
+	if err != nil {
+		return "", fmt.Errorf("failed to query registered role: %v", err)
+	}
+	
+	var roleData struct {
+		RegisteredRole []struct {
+			UID  string `json:"uid"`
+			Name string `json:"name"`
+		} `json:"registeredRole"`
+	}
+	
+	err = json.Unmarshal([]byte(roleResult.Json), &roleData)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse role query: %v", err)
+	}
+	
+	var roleUID string
+	if len(roleData.RegisteredRole) > 0 {
+		roleUID = roleData.RegisteredRole[0].UID
+		log.Printf("✅ Found registered role: %s", roleUID)
+	} else {
+		// If no registered role exists, continue without it but log warning
+		log.Printf("⚠️  Warning: 'registered' role not found, creating user without role")
+	}
+	
+	// Create the user with all required fields
+	currentTime := time.Now().Format(time.RFC3339)
+	nquads := fmt.Sprintf(`_:user <dgraph.type> "User" .
+_:user <status> "PENDING" .
+_:user <did> "%s" .
+_:user <createdAt> "%s" .
+_:user <updatedAt> "%s" .`,
+		userID, currentTime, currentTime)
+	
+	// Add role assignment if role exists
+	if roleUID != "" {
+		nquads += fmt.Sprintf(`
+_:user <roles> <%s> .`, roleUID)
+	}
+	
+	// Execute user creation mutation
+	mutationObj := dgraph.NewMutation().WithSetNquads(nquads)
+	result, err := dgraph.ExecuteMutations("dgraph", mutationObj)
+	if err != nil {
+		return "", fmt.Errorf("failed to create user: %v", err)
+	}
+	
+	// Extract the created user UID
+	var newUserUID string
+	if result.Uids != nil {
+		if uid, exists := result.Uids["user"]; exists {
+			newUserUID = uid
+		}
+	}
+	
+	if newUserUID == "" {
+		return "", fmt.Errorf("failed to get created user UID")
+	}
+	
+	log.Printf("✅ Created new user: %s (UID: %s)", userID, newUserUID)
+	
+	// Create the user channel association
+	err = CreateUserChannel(userID, channelDID, channelType, true, true)
+	if err != nil {
+		log.Printf("⚠️  Warning: Failed to create user channel: %v", err)
+	}
+	
+	return userID, nil
 }
 
 // WebAuthn Integration Functions

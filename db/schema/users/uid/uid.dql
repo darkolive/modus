@@ -9,4 +9,3 @@ type User {
     wallet: uid 
     identityDocuments: [uid] 
 }
-
