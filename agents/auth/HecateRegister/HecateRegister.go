@@ -2,7 +2,7 @@ package hecateregister
 
 import (
 	"context"
-	"encoding/json"
+	// "encoding/json" // Uncomment when debug logging is enabled
 	"fmt"
 	"time"
 
@@ -106,18 +106,19 @@ func triggerIdentityCheck(userID string) (string, error) {
 	// For now, return placeholder identity check ID
 	identityCheckID := fmt.Sprintf("id_check_%s_%d", userID, time.Now().UnixNano())
 	
-	fmt.Printf("🔍 Identity check initiated: %s for user %s\n", identityCheckID, userID)
+	// Debug: fmt.Printf("🔍 Identity check initiated: %s for user %s\n", identityCheckID, userID)
 	return identityCheckID, nil
 }
 
 // emitAuditEvent creates an ISO-compliant audit trail entry
-func emitAuditEvent(event AuditEvent) (string, error) {
+func emitAuditEvent(_ AuditEvent) (string, error) {
 	// TODO: Integrate with ISO audit-trail system
 	// For now, log the event and return placeholder audit ID
 	auditID := fmt.Sprintf("audit_%d", time.Now().UnixNano())
 	
-	eventJSON, _ := json.MarshalIndent(event, "", "  ")
-	fmt.Printf("📋 Audit Event [%s]:\n%s\n", auditID, string(eventJSON))
+	// Debug logging - uncomment for troubleshooting
+	// eventJSON, _ := json.MarshalIndent(event, "", "  ")
+	// fmt.Printf("📋 Audit Event [%s]:\n%s\n", auditID, string(eventJSON))
 	
 	return auditID, nil
 }
@@ -184,7 +185,8 @@ func createUserInDgraph(req UserRegistrationRequest, userID string) error {
 	// Extract the created user UID
 	if len(result.Uids) > 0 {
 		if uid, exists := result.Uids["user"]; exists {
-			fmt.Printf("✅ User created with UID: %s\n", uid)
+			// Debug: fmt.Printf("✅ User created with UID: %s\n", uid)
+			_ = uid // Suppress unused variable warning
 		}
 	}
 	
@@ -193,7 +195,7 @@ func createUserInDgraph(req UserRegistrationRequest, userID string) error {
 
 // RegisterUser is the main exported function to register a new user
 func RegisterUser(ctx context.Context, req UserRegistrationRequest) (UserRegistrationResponse, error) {
-	fmt.Printf("🌙 HecateRegister: Initiating user registration for %s\n", req.Recipient)
+	// Debug: fmt.Printf("🌙 HecateRegister: Initiating user registration for %s\n", req.Recipient)
 	
 	// Generate unique user ID
 	userID := generateUserID()

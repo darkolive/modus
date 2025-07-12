@@ -43,7 +43,7 @@ type UserChannelsResult struct {
 
 // CerberusMFA is the main function that determines authentication flow
 func CerberusMFA(req CerberusMFARequest) (*CerberusMFAResponse, error) {
-	log.Printf("🐕 CerberusMFA: Checking user existence for channel %s (%s)", req.ChannelDID, req.ChannelType)
+	// Debug: log.Printf("🐕 CerberusMFA: Checking user existence for channel %s (%s)", req.ChannelDID, req.ChannelType)
 
 	// Check if user exists by channel hash
 	userExists, userID, err := checkUserByChannel(req.ChannelDID, req.ChannelType)
@@ -53,7 +53,7 @@ func CerberusMFA(req CerberusMFARequest) (*CerberusMFAResponse, error) {
 
 	if userExists {
 		// Existing user - proceed to sign-in flow
-		log.Printf("✅ Existing user found: %s", userID)
+		// Debug: log.Printf("✅ Existing user found: %s", userID)
 		
 		// Update last used timestamp for the channel
 		if err := updateChannelLastUsed(req.ChannelDID, req.ChannelType); err != nil {
@@ -70,7 +70,7 @@ func CerberusMFA(req CerberusMFARequest) (*CerberusMFAResponse, error) {
 		}, nil
 	} else {
 		// New user - create user account first
-		log.Printf("🆕 New user detected for channel %s", req.ChannelDID)
+		// Debug: log.Printf("🆕 New user detected for channel %s", req.ChannelDID)
 		
 		// Create the new user with PENDING status and 'registered' role
 		newUserID, err := CreateNewUser(req.ChannelDID, req.ChannelType)
@@ -86,7 +86,7 @@ func CerberusMFA(req CerberusMFARequest) (*CerberusMFAResponse, error) {
 			}, nil
 		}
 		
-		log.Printf("✅ Created new user: %s", newUserID)
+		// Debug: log.Printf("✅ Created new user: %s", newUserID)
 
 		return &CerberusMFAResponse{
 			UserExists:       true, // Now the user exists after creation
@@ -134,7 +134,7 @@ func checkUserByChannel(channelDID, channelType string) (bool, string, error) {
 			return true, channel.UserID, nil
 		} else {
 			// Channel exists but not verified - treat as new user for security
-			log.Printf("⚠️ Found unverified channel for %s - treating as new user", channelDID)
+			// Debug: log.Printf("⚠️ Found unverified channel for %s - treating as new user", channelDID)
 			return false, "", nil
 		}
 	}
@@ -177,7 +177,7 @@ func updateChannelLastUsed(channelDID, channelType string) error {
 			return fmt.Errorf("failed to update channel lastUsedAt: %v", err)
 		}
 
-		log.Printf("✅ Updated lastUsedAt for channel %s", channelDID)
+		// Debug: log.Printf("✅ Updated lastUsedAt for channel %s", channelDID)
 	}
 
 	return nil
@@ -203,13 +203,13 @@ _:channel <lastUsedAt> "%s" .`,
 		return fmt.Errorf("failed to create user channel: %v", err)
 	}
 
-	log.Printf("✅ Created user channel: %s -> %s", userID, channelType)
+	// Debug: log.Printf("✅ Created user channel: %s -> %s", userID, channelType)
 	return nil
 }
 
 // CreateNewUser creates a new user with PENDING status and assigns 'registered' role
 func CreateNewUser(channelDID, channelType string) (string, error) {
-	log.Printf("🆕 Creating new user for channel: %s (%s)", channelDID, channelType)
+	// Debug: log.Printf("🆕 Creating new user for channel: %s (%s)", channelDID, channelType)
 	
 	// Generate a unique user ID using timestamp and channel hash
 	userID := fmt.Sprintf("user_%d_%s", time.Now().Unix(), channelDID[len(channelDID)-8:])
@@ -242,7 +242,7 @@ func CreateNewUser(channelDID, channelType string) (string, error) {
 	var roleUID string
 	if len(roleData.RegisteredRole) > 0 {
 		roleUID = roleData.RegisteredRole[0].UID
-		log.Printf("✅ Found registered role: %s", roleUID)
+		// Debug: log.Printf("✅ Found registered role: %s", roleUID)
 	} else {
 		// If no registered role exists, continue without it but log warning
 		log.Printf("⚠️  Warning: 'registered' role not found, creating user without role")
@@ -282,7 +282,7 @@ _:user <roles> <%s> .`, roleUID)
 		return "", fmt.Errorf("failed to get created user UID")
 	}
 	
-	log.Printf("✅ Created new user: %s (UID: %s)", userID, newUserUID)
+	// Debug: log.Printf("✅ Created new user: %s (UID: %s)", userID, newUserUID)
 	
 	// Create the user channel association
 	err = CreateUserChannel(userID, channelDID, channelType, true, true)
@@ -297,7 +297,7 @@ _:user <roles> <%s> .`, roleUID)
 
 // InitiateWebAuthnRegistration creates a WebAuthn registration challenge
 func InitiateWebAuthnRegistration(userID, username, displayName string) (*webauthn.ChallengeResponse, error) {
-	log.Printf("🔐 CerberusMFA: Initiating WebAuthn registration for user %s", userID)
+	// Debug: log.Printf("🔐 CerberusMFA: Initiating WebAuthn registration for user %s", userID)
 	
 	ctx := context.Background()
 	webauthnService := webauthn.NewWebAuthnService()
@@ -313,13 +313,13 @@ func InitiateWebAuthnRegistration(userID, username, displayName string) (*webaut
 		return nil, fmt.Errorf("failed to create WebAuthn registration challenge: %v", err)
 	}
 	
-	log.Printf("✅ WebAuthn registration challenge created for user %s", userID)
+	// Debug: log.Printf("✅ WebAuthn registration challenge created for user %s", userID)
 	return &response, nil
 }
 
 // VerifyWebAuthnRegistration verifies a WebAuthn registration response
 func VerifyWebAuthnRegistration(req webauthn.RegistrationRequest) (*webauthn.RegistrationResponse, error) {
-	log.Printf("🔐 CerberusMFA: Verifying WebAuthn registration for user %s", req.UserID)
+	// Debug: log.Printf("🔐 CerberusMFA: Verifying WebAuthn registration for user %s", req.UserID)
 	
 	ctx := context.Background()
 	webauthnService := webauthn.NewWebAuthnService()
@@ -330,7 +330,7 @@ func VerifyWebAuthnRegistration(req webauthn.RegistrationRequest) (*webauthn.Reg
 	}
 	
 	if response.Success {
-		log.Printf("✅ WebAuthn registration verified for user %s", req.UserID)
+		// Debug: log.Printf("✅ WebAuthn registration verified for user %s", req.UserID)
 	} else {
 		log.Printf("❌ WebAuthn registration failed for user %s: %s", req.UserID, response.Message)
 	}
@@ -340,7 +340,7 @@ func VerifyWebAuthnRegistration(req webauthn.RegistrationRequest) (*webauthn.Reg
 
 // InitiateWebAuthnAuthentication creates a WebAuthn authentication challenge
 func InitiateWebAuthnAuthentication(userID string) (*webauthn.AssertionChallengeResponse, error) {
-	log.Printf("🔐 CerberusMFA: Initiating WebAuthn authentication for user %s", userID)
+	// Debug: log.Printf("🔐 CerberusMFA: Initiating WebAuthn authentication for user %s", userID)
 	
 	webauthnService := webauthn.NewWebAuthnService()
 	
@@ -353,13 +353,13 @@ func InitiateWebAuthnAuthentication(userID string) (*webauthn.AssertionChallenge
 		return nil, fmt.Errorf("failed to create WebAuthn authentication challenge: %v", err)
 	}
 	
-	log.Printf("✅ WebAuthn authentication challenge created for user %s", userID)
+	// Debug: log.Printf("✅ WebAuthn authentication challenge created for user %s", userID)
 	return &response, nil
 }
 
 // VerifyWebAuthnAuthentication verifies a WebAuthn authentication response
 func VerifyWebAuthnAuthentication(req webauthn.AuthenticationRequest) (*webauthn.AuthenticationResponse, error) {
-	log.Printf("🔐 CerberusMFA: Verifying WebAuthn authentication for user %s", req.UserID)
+	// Debug: log.Printf("🔐 CerberusMFA: Verifying WebAuthn authentication for user %s", req.UserID)
 	
 	webauthnService := webauthn.NewWebAuthnService()
 	
@@ -369,7 +369,7 @@ func VerifyWebAuthnAuthentication(req webauthn.AuthenticationRequest) (*webauthn
 	}
 	
 	if response.Success {
-		log.Printf("✅ WebAuthn authentication verified for user %s", req.UserID)
+		// Debug: log.Printf("✅ WebAuthn authentication verified for user %s", req.UserID)
 	} else {
 		log.Printf("❌ WebAuthn authentication failed for user %s: %s", req.UserID, response.Message)
 	}

@@ -29,10 +29,11 @@ func Initialize() (*ChronosSession, error) {
 	ttl := int64(86400)      // 24 hours in seconds
 	refreshWindow := int64(3600) // 1 hour refresh window
 	
-	fmt.Println("✅ Using hardcoded session configuration for testing")
-	fmt.Printf("   SECRET_KEY: %s\n", secretKey[:10]+"...")
-	fmt.Printf("   TTL: %d seconds\n", ttl)
-	fmt.Printf("   REFRESH_WINDOW: %d seconds\n", refreshWindow)
+	// Debug logging - uncomment for troubleshooting session configuration
+	// fmt.Println("✅ Using hardcoded session configuration for testing")
+	// fmt.Printf("   SECRET_KEY: %s\n", secretKey[:10]+"...")
+	// fmt.Printf("   TTL: %d seconds\n", ttl)
+	// fmt.Printf("   REFRESH_WINDOW: %d seconds\n", refreshWindow)
 
 	return &ChronosSession{
 		secretKey:       secretKey,
@@ -234,7 +235,7 @@ func (cs *ChronosSession) RevokeSession(ctx context.Context, req *RevocationRequ
 // Helper methods for database operations
 
 // storeSession stores session information in Dgraph
-func (cs *ChronosSession) storeSession(ctx context.Context, userID, token string, issuedAt, expiresAt time.Time, req *SessionRequest) error {
+func (cs *ChronosSession) storeSession(_ context.Context, userID, token string, issuedAt, expiresAt time.Time, req *SessionRequest) error {
 	// Hash the token for storage
 	tokenHash := cs.hashToken(token)
 	
@@ -275,7 +276,7 @@ func (cs *ChronosSession) hashToken(token string) string {
 }
 
 // isTokenValid checks if a token is still valid in the database
-func (cs *ChronosSession) isTokenValid(ctx context.Context, token string) (bool, error) {
+func (cs *ChronosSession) isTokenValid(_ context.Context, token string) (bool, error) {
 	tokenHash := cs.hashToken(token)
 	
 	// DQL query to check if token exists and is valid
@@ -338,7 +339,7 @@ func (cs *ChronosSession) isTokenValid(ctx context.Context, token string) (bool,
 }
 
 // updateLastUsed updates the lastUsed timestamp for a session
-func (cs *ChronosSession) updateLastUsed(ctx context.Context, token string) error {
+func (cs *ChronosSession) updateLastUsed(_ context.Context, token string) error {
 	tokenHash := cs.hashToken(token)
 	now := time.Now()
 	
@@ -392,7 +393,7 @@ func (cs *ChronosSession) updateLastUsed(ctx context.Context, token string) erro
 }
 
 // invalidateToken marks a token as invalid in the database
-func (cs *ChronosSession) invalidateToken(ctx context.Context, token string) error {
+func (cs *ChronosSession) invalidateToken(_ context.Context, token string) error {
 	tokenHash := cs.hashToken(token)
 	
 	// First, get the UID of the session
