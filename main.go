@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	charonotp "modus/agents/auth/CharonOTP"
@@ -137,10 +138,11 @@ type WebAuthnAuthRequest struct {
 
 // WebAuthnAuthResponse represents a WebAuthn authentication response
 type WebAuthnAuthResponse struct {
-	Success   bool   `json:"success"`
-	UserID    string `json:"userId"`
-	Message   string `json:"message"`
-	SessionID string `json:"sessionId,omitempty"`
+	Success     bool   `json:"success"`
+	UserID      string `json:"userId"`
+	Message     string `json:"message"`
+	SessionID   string `json:"sessionId,omitempty"`
+	AccessToken string `json:"accessToken,omitempty"`
 }
 
 // WebAuthnAssertionChallengeRequest represents a request for assertion challenge
@@ -489,6 +491,39 @@ func convertFromWebAuthnAssertionResponse(resp webauthn.AssertionChallengeRespon
 }
 
 func convertFromWebAuthnAuthResponse(resp webauthn.AuthenticationResponse) WebAuthnAuthResponse {
+	// If authentication was successful, create a session with ChronosSession
+	if resp.Success {
+		// Create session request
+		sessionReq := SessionRequest{
+			UserID:     resp.UserID,
+			ChannelDID: resp.UserID, // Use UserID as ChannelDID for WebAuthn
+			Action:     "signin",
+		}
+		
+		// Generate JWT token through CreateSession
+		sessionResp, err := CreateSession(sessionReq)
+		if err != nil {
+			log.Printf("⚠️ Warning: Failed to create session after WebAuthn auth: %v", err)
+			// Return basic response without JWT token
+			return WebAuthnAuthResponse{
+				Success:   resp.Success,
+				UserID:    resp.UserID,
+				Message:   resp.Message,
+				SessionID: resp.SessionID,
+			}
+		}
+		
+		// Return response with JWT token
+		return WebAuthnAuthResponse{
+			Success:     resp.Success,
+			UserID:      resp.UserID,
+			Message:     resp.Message,
+			SessionID:   sessionResp.SessionID,   // JWT token
+			AccessToken: sessionResp.AccessToken, // Same JWT token
+		}
+	}
+	
+	// Return basic response for failed authentication
 	return WebAuthnAuthResponse{
 		Success:   resp.Success,
 		UserID:    resp.UserID,

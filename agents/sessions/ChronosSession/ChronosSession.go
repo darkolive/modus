@@ -7,12 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5" // JWT package for token handling
-	"github.com/google/uuid"      // UUID generation
 	"github.com/hypermodeinc/modus/sdk/go/pkg/dgraph" // Correct Modus SDK path with pkg
 )
 
@@ -26,26 +23,16 @@ type ChronosSession struct {
 
 // Initialize creates a new ChronosSession instance with configuration from env
 func Initialize() (*ChronosSession, error) {
-	// Get configuration from environment variables
-	secretKey := os.Getenv("SESSION_SECRET")
-	if secretKey == "" {
-		secretKey = uuid.New().String() // Generate a random secret if not provided
-		fmt.Println("⚠️ Warning: SESSION_SECRET not set, using generated secret")
-	}
-
-	ttlStr := os.Getenv("SESSION_TTL")
-	ttl, err := strconv.ParseInt(ttlStr, 10, 64)
-	if err != nil || ttl <= 0 {
-		ttl = 86400 // Default to 24 hours (in seconds)
-		fmt.Println("⚠️ Warning: Invalid SESSION_TTL, using default 86400 seconds (24 hours)")
-	}
-
-	refreshWindowStr := os.Getenv("SESSION_REFRESH_WINDOW")
-	refreshWindow, err := strconv.ParseInt(refreshWindowStr, 10, 64)
-	if err != nil || refreshWindow <= 0 || refreshWindow >= ttl {
-		refreshWindow = 3600 // Default to 1 hour refresh window
-		fmt.Println("⚠️ Warning: Invalid SESSION_REFRESH_WINDOW, using default 3600 seconds (1 hour)")
-	}
+	// TEMPORARY FIX: Hardcode configuration values for testing
+	// TODO: Fix Modus runtime environment variable loading
+	secretKey := "your-secure-secret-key-for-testing-jwt-tokens"
+	ttl := int64(86400)      // 24 hours in seconds
+	refreshWindow := int64(3600) // 1 hour refresh window
+	
+	fmt.Println("✅ Using hardcoded session configuration for testing")
+	fmt.Printf("   SECRET_KEY: %s\n", secretKey[:10]+"...")
+	fmt.Printf("   TTL: %d seconds\n", ttl)
+	fmt.Printf("   REFRESH_WINDOW: %d seconds\n", refreshWindow)
 
 	return &ChronosSession{
 		secretKey:       secretKey,
@@ -70,7 +57,7 @@ func (cs *ChronosSession) IssueSession(ctx context.Context, req *SessionRequest)
 		"sub": req.UserID,        // Subject: UserID
 		"iat": now.Unix(),        // Issued At: Current time
 		"exp": expiresAt.Unix(),  // Expires At: Current time + TTL
-		"jti": uuid.NewString(),  // JWT ID: Unique identifier for this token
+		"jti": fmt.Sprintf("%d-%s", now.Unix(), req.UserID), // JWT ID: Unique identifier for this token
 	}
 
 	// Add any additional claims
