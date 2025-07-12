@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"time"
 
 	charonotp "modus/agents/auth/CharonOTP"
 	cerberusmfa "modus/agents/auth/CerberusMFA"
+	chronossession "modus/agents/sessions/ChronosSession"
 	"modus/services/webauthn"
 )
 
@@ -189,6 +188,46 @@ type ValidateSessionResponse struct {
 	UserID    string `json:"userId"`
 	Message   string `json:"message"`
 	ExpiresAt int64  `json:"expiresAt,omitempty"`
+}
+
+// ChronosSession-compatible types for session lifecycle management
+
+// ValidationRequest for ChronosSession token validation
+type ValidationRequest struct {
+	Token string `json:"token"`
+}
+
+// ValidationResponse for ChronosSession token validation results
+type ValidationResponse struct {
+	Valid     bool   `json:"valid"`
+	UserID    string `json:"userId,omitempty"`
+	ExpiresAt int64  `json:"expiresAt,omitempty"`
+	Message   string `json:"message,omitempty"`
+}
+
+// RefreshRequest for extending an existing session
+type RefreshRequest struct {
+	Token string `json:"token"`
+}
+
+// RefreshResponse for session refresh results
+type RefreshResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt int64  `json:"expiresAt"`
+	Message   string `json:"message,omitempty"`
+}
+
+// RevocationRequest for revoking a session
+type RevocationRequest struct {
+	Token  string `json:"token"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// RevocationResponse for session revocation results
+type RevocationResponse struct {
+	Revoked   bool   `json:"revoked"`
+	Message   string `json:"message,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
 }
 
 
@@ -506,128 +545,116 @@ func TestSimpleFunction(input string) (string, error) {
 func CreateSession(req SessionRequest) (SessionResponse, error) {
 	ctx := context.Background()
 	
-	// Generate secure session ID
-	sessionID, err := generateSecureToken()
+	// Initialize ChronosSession agent
+	chronos, err := chronossession.Initialize()
 	if err != nil {
-		return SessionResponse{}, fmt.Errorf("failed to generate session ID: %v", err)
+		return SessionResponse{}, fmt.Errorf("failed to initialize ChronosSession: %v", err)
 	}
 	
-	// Generate access token
-	accessToken, err := generateSecureToken()
-	if err != nil {
-		return SessionResponse{}, fmt.Errorf("failed to generate access token: %v", err)
+	// Create session request for ChronosSession agent
+	sessionReq := &chronossession.SessionRequest{
+		UserID:     req.UserID,
+		DeviceInfo: fmt.Sprintf("ChannelDID: %s, Action: %s", req.ChannelDID, req.Action),
 	}
 	
-	// Set session expiration (24 hours from now)
-	expiresAt := time.Now().Add(24 * time.Hour).Unix()
-	
-	// Store session in database
-	err = storeSession(ctx, sessionID, req.UserID, req.ChannelDID, expiresAt)
+	// Create session using ChronosSession agent
+	sessionResp, err := chronos.IssueSession(ctx, sessionReq)
 	if err != nil {
-		return SessionResponse{}, fmt.Errorf("failed to store session: %v", err)
+		return SessionResponse{}, fmt.Errorf("failed to create session: %v", err)
 	}
 	
 	return SessionResponse{
 		Success:     true,
-		SessionID:   sessionID,
-		AccessToken: accessToken,
-		ExpiresAt:   expiresAt,
-		Message:     "Session created successfully",
-		UserID:      req.UserID,
+		SessionID:   sessionResp.Token, // Use token as sessionID
+		AccessToken: sessionResp.Token,
+		ExpiresAt:   sessionResp.ExpiresAt.Unix(),
+		Message:     sessionResp.Message,
+		UserID:      sessionResp.UserID,
 	}, nil
 }
 
-// ValidateSession validates an existing session token
-func ValidateSession(req ValidateSessionRequest) (ValidateSessionResponse, error) {
+// ValidateSession validates an existing session token using ChronosSession
+func ValidateSession(req ValidationRequest) (ValidationResponse, error) {
 	ctx := context.Background()
 	
-	// Use sessionID if provided, otherwise use accessToken
-	identifier := req.SessionID
-	if identifier == "" {
-		identifier = req.AccessToken
-	}
-	
-	if identifier == "" {
-		return ValidateSessionResponse{
-			Valid:   false,
-			Message: "No session identifier provided",
-		}, nil
-	}
-	
-	// Validate session from database
-	userID, expiresAt, err := validateSessionFromDB(ctx, identifier)
+	// Initialize ChronosSession agent
+	chronos, err := chronossession.Initialize()
 	if err != nil {
-		return ValidateSessionResponse{
-			Valid:   false,
-			Message: fmt.Sprintf("Session validation failed: %v", err),
-		}, nil
+		return ValidationResponse{}, fmt.Errorf("failed to initialize ChronosSession: %v", err)
 	}
 	
-	// Check if session is expired
-	if time.Now().Unix() > expiresAt {
-		return ValidateSessionResponse{
-			Valid:   false,
-			Message: "Session expired",
-		}, nil
+	// Create validation request for ChronosSession agent
+	validationReq := &chronossession.ValidationRequest{
+		Token: req.Token,
 	}
 	
-	return ValidateSessionResponse{
-		Valid:     true,
-		UserID:    userID,
-		Message:   "Session is valid",
-		ExpiresAt: expiresAt,
+	// Validate session using ChronosSession agent
+	validationResp, err := chronos.ValidateSession(ctx, validationReq)
+	if err != nil {
+		return ValidationResponse{}, fmt.Errorf("failed to validate session: %v", err)
+	}
+	
+	return ValidationResponse{
+		Valid:     validationResp.Valid,
+		UserID:    validationResp.UserID,
+		ExpiresAt: validationResp.ExpiresAt.Unix(),
+		Message:   validationResp.Message,
 	}, nil
 }
 
-// Helper function to generate secure tokens
-func generateSecureToken() (string, error) {
-	bytes := make([]byte, 32)
-	_, err := rand.Read(bytes)
+// RefreshSession extends an existing session using ChronosSession
+func RefreshSession(req RefreshRequest) (RefreshResponse, error) {
+	ctx := context.Background()
+	
+	// Initialize ChronosSession agent
+	chronos, err := chronossession.Initialize()
 	if err != nil {
-		return "", err
+		return RefreshResponse{}, fmt.Errorf("failed to initialize ChronosSession: %v", err)
 	}
-	return base64.URLEncoding.EncodeToString(bytes), nil
+	
+	// Create refresh request for ChronosSession agent
+	refreshReq := &chronossession.RefreshRequest{
+		Token: req.Token,
+	}
+	
+	// Refresh session using ChronosSession agent
+	refreshResp, err := chronos.RefreshSession(ctx, refreshReq)
+	if err != nil {
+		return RefreshResponse{}, fmt.Errorf("failed to refresh session: %v", err)
+	}
+	
+	return RefreshResponse{
+		Token:     refreshResp.Token,
+		ExpiresAt: refreshResp.ExpiresAt.Unix(),
+		Message:   refreshResp.Message,
+	}, nil
 }
 
-// Database helper functions for session management
-
-// storeSession stores a session in Dgraph database
-func storeSession(ctx context.Context, sessionID, userID, channelDID string, expiresAt int64) error {
-	// Import dgraph package for database operations
-	// Note: This would typically import "github.com/hypermodeinc/modus/sdk/go/pkg/dgraph"
-	// For now, we'll create a placeholder that can be implemented
+// RevokeSession revokes an existing session using ChronosSession
+func RevokeSession(req RevocationRequest) (RevocationResponse, error) {
+	ctx := context.Background()
 	
-	// Create session record in database
-	nquads := fmt.Sprintf(`
-		_:session <sessionId> "%s" .
-		_:session <userId> "%s" .
-		_:session <channelDID> "%s" .
-		_:session <expiresAt> "%d"^^<xs:int> .
-		_:session <createdAt> "%s"^^<xs:dateTime> .
-		_:session <dgraph.type> "Session" .
-	`, sessionID, userID, channelDID, expiresAt, time.Now().Format(time.RFC3339))
+	// Initialize ChronosSession agent
+	chronos, err := chronossession.Initialize()
+	if err != nil {
+		return RevocationResponse{}, fmt.Errorf("failed to initialize ChronosSession: %v", err)
+	}
 	
-	// This would use the Modus SDK to execute the mutation
-	// For now, return success as placeholder
-	_ = nquads // Use the variable to avoid unused error
-	return nil
-}
-
-// validateSessionFromDB validates a session from Dgraph database
-func validateSessionFromDB(ctx context.Context, identifier string) (string, int64, error) {
-	// Query to find session by sessionID or accessToken
-	query := fmt.Sprintf(`{
-		session(func: eq(sessionId, "%s")) {
-			userId
-			expiresAt
-			createdAt
-		}
-	}`, identifier)
+	// Create revocation request for ChronosSession agent
+	revocationReq := &chronossession.RevocationRequest{
+		Token:  req.Token,
+		Reason: req.Reason,
+	}
 	
-	// This would use the Modus SDK to execute the query
-	// For now, return placeholder values for testing
-	_ = query // Use the variable to avoid unused error
+	// Revoke session using ChronosSession agent
+	revocationResp, err := chronos.RevokeSession(ctx, revocationReq)
+	if err != nil {
+		return RevocationResponse{}, fmt.Errorf("failed to revoke session: %v", err)
+	}
 	
-	// Placeholder return - in real implementation, this would parse Dgraph response
-	return "user123", time.Now().Add(24*time.Hour).Unix(), nil
+	return RevocationResponse{
+		Revoked:   revocationResp.Revoked,
+		Message:   revocationResp.Message,
+		Timestamp: revocationResp.Timestamp,
+	}, nil
 }
