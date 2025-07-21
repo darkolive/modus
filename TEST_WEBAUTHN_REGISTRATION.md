@@ -1,3 +1,5 @@
+test
+
 # WebAuthn Registration Flow Test Documentation
 
 ## Overview
@@ -16,30 +18,35 @@ The `test_webauthn_registration.sh` script provides comprehensive end-to-end tes
 ## Test Steps
 
 ### Step 1: OTP Send
+
 - **Endpoint**: `sendOTP`
 - **Purpose**: Initiate OTP verification via email/phone
 - **Input**: Channel (email/phone), recipient, userID
 - **Output**: OTP ID, expiration time, delivery status
 
 ### Step 2: OTP Verification
+
 - **Endpoint**: `verifyOTP`
 - **Purpose**: Verify the OTP code and obtain channel DID
 - **Input**: OTP ID, OTP code, userID
 - **Output**: Channel DID, channel type, verification status
 
 ### Step 3: CerberusMFA Routing
+
 - **Endpoint**: `cerberusMFA`
 - **Purpose**: Check user existence and determine next action
 - **Input**: Channel DID, channel type
 - **Output**: User exists flag, action (signin/register), available methods
 
 ### Step 4: WebAuthn Registration Challenge
+
 - **Endpoint**: `createWebAuthnRegistrationChallenge`
 - **Purpose**: Generate WebAuthn registration challenge
 - **Input**: User ID, username, display name
 - **Output**: Challenge data, relying party info, credential parameters
 
 ### Step 5: WebAuthn Registration Verification
+
 - **Endpoint**: `verifyWebAuthnRegistration`
 - **Purpose**: Verify WebAuthn registration response
 - **Input**: User ID, challenge, client data, attestation object
@@ -48,11 +55,13 @@ The `test_webauthn_registration.sh` script provides comprehensive end-to-end tes
 ## Usage
 
 ### Basic Usage
+
 ```bash
 ./test_webauthn_registration.sh
 ```
 
 ### Custom Configuration
+
 ```bash
 # Custom email
 ./test_webauthn_registration.sh -e user@example.com
@@ -65,15 +74,18 @@ The `test_webauthn_registration.sh` script provides comprehensive end-to-end tes
 ```
 
 ### Command Line Options
+
 - `-e, --email EMAIL`: Test email address
-- `-p, --phone PHONE`: Test phone number  
+- `-p, --phone PHONE`: Test phone number
 - `-u, --endpoint URL`: GraphQL endpoint URL
 - `-h, --help`: Show help message
 
 ## Prerequisites
 
 ### Server Requirements
+
 1. **Modus Server Running**: The GraphQL server must be running
+
    ```bash
    cd /path/to/modus
    go run .
@@ -87,6 +99,7 @@ The `test_webauthn_registration.sh` script provides comprehensive end-to-end tes
    ```
 
 ### System Requirements
+
 - `curl`: For making HTTP requests
 - `grep`: For parsing JSON responses
 - `bash`: Shell environment
@@ -94,6 +107,7 @@ The `test_webauthn_registration.sh` script provides comprehensive end-to-end tes
 ## Expected Output
 
 ### Successful Test Run
+
 ```
 🚀 Starting WebAuthn Registration Flow Test
 ==================================================
@@ -133,11 +147,13 @@ Test Configuration:
 ## Test Limitations
 
 ### Simulated Components
+
 1. **OTP Verification**: Uses test OTP code (123456) instead of real email/SMS
 2. **WebAuthn Attestation**: Uses simulated attestation data instead of real authenticator response
 3. **Channel DID**: Generated from email hash for testing
 
 ### Production Differences
+
 1. **Real OTP Delivery**: Actual email/SMS delivery required
 2. **Browser Integration**: Real WebAuthn API calls from browser
 3. **Authenticator Interaction**: Physical authenticator (fingerprint, face, security key)
@@ -147,18 +163,23 @@ Test Configuration:
 ### Common Issues
 
 #### GraphQL Endpoint Not Available
+
 ```
 ❌ GraphQL endpoint is not available at http://localhost:8686/graphql
 💡 Please ensure the Modus server is running with: go run .
 ```
+
 **Solution**: Start the Modus server in the project directory
 
 #### Schema Not Deployed
+
 ```
 ❌ Failed to send OTP
 Response: {"errors":[{"message":"Unknown type OTPRequest"}]}
 ```
+
 **Solution**: Deploy the latest schema
+
 ```bash
 cd modus/db
 ./combine_schema.sh
@@ -166,10 +187,13 @@ cd modus/db
 ```
 
 #### Missing Dependencies
+
 ```
 ❌ curl is required but not installed
 ```
+
 **Solution**: Install required tools
+
 ```bash
 # macOS
 brew install curl
@@ -181,11 +205,12 @@ sudo apt-get install curl
 ## Integration with Frontend
 
 ### JavaScript WebAuthn Integration
+
 ```javascript
 // Step 1: Get registration challenge
-const challengeResponse = await fetch('/graphql', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+const challengeResponse = await fetch("/graphql", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     query: `mutation CreateWebAuthnRegistrationChallenge($req: WebAuthnChallengeRequest!) {
       createWebAuthnRegistrationChallenge(req: $req) {
@@ -203,8 +228,8 @@ const challengeResponse = await fetch('/graphql', {
         excludeCredentials { type id transports }
       }
     }`,
-    variables: { req: { userID, username, displayName } }
-  })
+    variables: { req: { userID, username, displayName } },
+  }),
 });
 
 // Step 2: Create credential with WebAuthn API
@@ -215,20 +240,20 @@ const credential = await navigator.credentials.create({
     user: {
       id: stringToArrayBuffer(challengeData.user.id),
       name: challengeData.user.name,
-      displayName: challengeData.user.displayName
+      displayName: challengeData.user.displayName,
     },
     pubKeyCredParams: challengeData.pubKeyCredParams,
     authenticatorSelection: challengeData.authenticatorSelection,
     timeout: challengeData.timeout,
     attestation: challengeData.attestation,
-    excludeCredentials: challengeData.excludeCredentials
-  }
+    excludeCredentials: challengeData.excludeCredentials,
+  },
 });
 
 // Step 3: Verify registration
-const verificationResponse = await fetch('/graphql', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+const verificationResponse = await fetch("/graphql", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     query: `mutation VerifyWebAuthnRegistration($req: WebAuthnRegistrationRequest!) {
       verifyWebAuthnRegistration(req: $req) {
@@ -243,21 +268,25 @@ const verificationResponse = await fetch('/graphql', {
         userID,
         challenge: challengeData.challenge,
         clientDataJSON: arrayBufferToBase64(credential.response.clientDataJSON),
-        attestationObject: arrayBufferToBase64(credential.response.attestationObject)
-      }
-    }
-  })
+        attestationObject: arrayBufferToBase64(
+          credential.response.attestationObject
+        ),
+      },
+    },
+  }),
 });
 ```
 
 ## Security Considerations
 
 ### Test Environment Only
+
 - **Simulated Data**: Test uses fake attestation data
 - **Test OTP**: Uses predictable OTP code (123456)
 - **No Real Authentication**: Does not provide actual security
 
 ### Production Requirements
+
 - **Real Authenticators**: Physical security keys, biometrics
 - **HTTPS Required**: WebAuthn requires secure context
 - **Origin Validation**: Proper relying party configuration
